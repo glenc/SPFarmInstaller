@@ -35,8 +35,9 @@ if ($farm -eq $null) {
             &./lib/create-farm.ps1
             
             $isNewFarm = true
+            info "Created new farm."
 		} else {
-			$farmMessage = "Done joining farm."
+			info "Done joining farm."
 		}
 	
         info "Creating Version registry value (workaround for bug in PS-based install)"
@@ -44,15 +45,15 @@ if ($farm -eq $null) {
     	$build = "$($(Get-SPFarm).BuildVersion.Major).0.0.$($(Get-SPFarm).BuildVersion.Build)"
     	info "$build"
     	New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Shared Tools\Web Server Extensions\14.0\' -Name Version -Value $build -ErrorAction SilentlyContinue | Out-Null
+        
 	} catch {
 		Write-Output $_
 		Pause
 		break
 	}
 } else {
-	$farmMessage = "$env:COMPUTERNAME is already joined to farm on '$ConfigDB'."
+	info "$env:COMPUTERNAME is already joined to farm on '$ConfigDB'."
 }
-into $farmMessage
 
 if($isNewFarm) {
     &./lib/config-farm.ps1
