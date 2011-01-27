@@ -84,7 +84,7 @@ function InstallPrerequisites([string]$pathToBits, [bool]$offline) {
 		if ($preReqLastError) {
 			warn $preReqLastError.Line
 			$preReqLastReturncode = $preReqLog | select-string -SimpleMatch -Pattern "Last return code" -Encoding Unicode | Select-Object -Last 1
-			If ($preReqLastReturnCode) {Write-Warning $preReqLastReturncode.Line}
+			if ($preReqLastReturnCode) {warn $preReqLastReturncode.Line}
 			info " - Review the log file and try to correct any error conditions."
 			Pause
 			Invoke-Item $env:TEMP\$PreReqLog

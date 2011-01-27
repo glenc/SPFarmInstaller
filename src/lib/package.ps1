@@ -1,4 +1,9 @@
 $libPath = [System.IO.Path]::GetDirectoryName($myInvocation.MyCommand.Definition)
-. "$libPath\util.ps1"
-. "$libPath\security.ps1"
 . "$libPath\farm.ps1"
+. "$libPath\installation.ps1"
+. "$libPath\managedMetadata.ps1"
+. "$libPath\security.ps1"
+. "$libPath\topology.ps1"
+. "$libPath\userProfiles.ps1"
+. "$libPath\util.ps1"
+. "$libPath\webApplications.ps1"
