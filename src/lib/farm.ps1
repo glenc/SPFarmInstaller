@@ -49,65 +49,65 @@ function CreateNewFarm($farmDefinition) {
 }
 
 function InitializeNewFarm($farmDefinition) {
-	info "Initializing the new SharePoint Farm"
-	
+    info "Initializing the new SharePoint Farm"
+    
     try {
         info " - Installing Help Collection..."
         Install-SPHelpCollection -All
             
-		info " - Securing Resources..."
-		Initialize-SPResourceSecurity
-		
+        info " - Securing Resources..."
+        Initialize-SPResourceSecurity
+        
         info " - Installing Services..."
-		Install-SPService
-		
+        Install-SPService
+        
         info " - Installing Features..."
-		Install-SPFeature -AllExistingFeatures -Force
+        Install-SPFeature -AllExistingFeatures -Force
         
         info " - Creating Central Admin..."
         CreateCentralAdmin $farmDefinition
-		
+        
         info " - Installing Application Content..."
-		Install-SPApplicationContent
-	} catch	{
-	    if ($err -like "*update conflict*") {
-			warn "A concurrency error occured, trying again."
-			CreateCentralAdmin $farmDefinition
-		} else {
-			Write-Output $_
-			Pause
-			break
-		}
-	}
+        Install-SPApplicationContent
+    } catch {
+        if ($err -like "*update conflict*") {
+            warn "A concurrency error occured, trying again."
+            CreateCentralAdmin $farmDefinition
+        } else {
+            Write-Output $_
+            Pause
+            break
+        }
+    }
     
-	info "Completed initial farm/server config."
+    info "Completed initial farm/server config."
 }
 
 function CreateCentralAdmin($farmDefinition) {
     $port = $farmDefinition.Get_Item("CentralAdminPort")
     
-	try {
-		$newCentralAdmin = New-SPCentralAdministration -Port $port -WindowsAuthProvider "NTLM" -ErrorVariable err
-		if (-not $?) {throw}
+    try {
+        $newCentralAdmin = New-SPCentralAdministration -Port $port -WindowsAuthProvider "NTLM" -ErrorVariable err
+        if (-not $?) {throw}
         
-		info "Waiting for Central Admin site to provision..."
-		$centralAdmin = Get-SPWebApplication -IncludeCentralAdministration | ? {$_.Url -like "http://$($env:COMPUTERNAME):$port*"}
-		
+        info "Waiting for Central Admin site to provision..."
+        $centralAdmin = Get-SPWebApplication -IncludeCentralAdministration | ? {$_.Url -like "http://$($env:COMPUTERNAME):$port*"}
+        
         while ($centralAdmin.Status -ne "Online") {
-			write-progress
-			sleep 1
-			$centralAdmin = Get-SPWebApplication -IncludeCentralAdministration | ? {$_.Url -like "http://$($env:COMPUTERNAME):$port*"}
-		}
-		info "Done!"
+            write-progress
+            sleep 1
+            $centralAdmin = Get-SPWebApplication -IncludeCentralAdministration | ? {$_.Url -like "http://$($env:COMPUTERNAME):$port*"}
+        }
+        info "Done!"
         
-	} catch	{
-   		if ($err -like "*update conflict*") {
-			warn "A concurrency error occured, trying again."
-			CreateCentralAdmin $farmDefinition
-		} else {
-			Write-Output $_
-			Pause
-			break
-		}
-	}
+    } catch {
+        if ($err -like "*update conflict*") {
+            warn "A concurrency error occured, trying again."
+            CreateCentralAdmin $farmDefinition
+        } else {
+            Write-Output $_
+            Pause
+            break
+        }
+    }
 }

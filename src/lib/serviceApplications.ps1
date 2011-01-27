@@ -4,32 +4,32 @@
 
 function GetOrCreateServiceApplicationPool([string]$name, $identity) {
     info "Getting Application Pool $name, creating if necessary..."
-	$appPool = Get-SPServiceApplicationPool $name -ea SilentlyContinue
+    $appPool = Get-SPServiceApplicationPool $name -ea SilentlyContinue
     
     if ($appPool -eq $null) { 
         $appPool = New-SPServiceApplicationPool $name -account $identity
-        If (-not $?) { throw "Failed to create an application pool" }
-  	}
+        if (-not $?) { throw "Failed to create an application pool" }
+    }
     
     return $appPool
 }
 
 function ApplyPermissionsToServiceApplication($serviceName, $permissions) {
     ## Get ID of "Managed Metadata Service"
-	$serviceAppToSecure = Get-SPServiceApplication -Name $serviceName
-	$serviceAppIDToSecure = $serviceAppToSecure.Id
+    $serviceAppToSecure = Get-SPServiceApplication -Name $serviceName
+    $serviceAppIDToSecure = $serviceAppToSecure.Id
     
     ## Get security for app
     $serviceAppSecurity = Get-SPServiceApplicationSecurity $serviceAppIDToSecure
-			
+            
     ## Get the Claims Principals for each identity specified
     foreach ($a in $permissions.Keys) {
         $principal = New-SPClaimsPrincipal -Identity $a -IdentityType WindowsSamAccountName
         Grant-SPObjectSecurity $serviceAppSecurity -Principal $principal -Rights $permissions.Get_Item($a)
     }
     
-	## Apply the changes to the Service application
-	Set-SPServiceApplicationSecurity $serviceAppIDToSecure -objectSecurity $serviceAppSecurity
+    ## Apply the changes to the Service application
+    Set-SPServiceApplicationSecurity $serviceAppIDToSecure -objectSecurity $serviceAppSecurity
 }
 
 function ProvisionMetadataServiceApp($definition) {
@@ -51,17 +51,17 @@ function ProvisionMetadataServiceApp($definition) {
         try {
             ## Get Managed Account
             $appPoolAccount = GetOrCreateManagedAccount $appPoolAccountName $appPoolAccountPassword
-          	if ($appPoolAccount -eq $null) { throw "Managed Account $appPoolAccountName not found" }
+            if ($appPoolAccount -eq $null) { throw "Managed Account $appPoolAccountName not found" }
             
             # Get App Pool
             $appPool = GetOrCreateServiceApplicationPool $appPoolName $appPoolAccount
             
             ## Create a Metadata Service Application
-          	if((Get-SPServiceApplication -Name $serviceName) -eq $null) {      
-    			info "Creating Managed Metadata Service"
+            if((Get-SPServiceApplication -Name $serviceName) -eq $null) {      
+                info "Creating Managed Metadata Service"
                 
                 ## Create Service App
-       			info "Creating Metadata Service Application..."
+                   info "Creating Metadata Service Application..."
                 if ($partitioned) {
                     $metaDataServiceApp  = New-SPMetadataServiceApplication -PartitionMode -Name $serviceName -ApplicationPool $appPool -DatabaseName $dbName -AdministratorAccount $adminAccount -FullAccessAccount $adminAccount
                     if (-not $?) { throw "Failed to create Metadata Service Application" }
@@ -72,23 +72,23 @@ function ProvisionMetadataServiceApp($definition) {
                 
 
                 ## create proxy
-    			info "Creating Metadata Service Application Proxy..."
+                info "Creating Metadata Service Application Proxy..."
                 $metaDataServiceAppProxy  = New-SPMetadataServiceApplicationProxy -Name "$serviceName Proxy" -ServiceApplication $MetaDataServiceApp -DefaultProxyGroup
                 if (-not $?) { throw "- Failed to create Metadata Service Application Proxy" }
                 
                 
                 ## Grant Rights to App
-    			info "Granting rights to Metadata Service Application..."
+                info "Granting rights to Metadata Service Application..."
                 ApplyPermissionsToServiceApplication $serviceName $permissions
                 
                 
                 ## All Done
-    			info "Done creating Managed Metadata Service."
+                info "Done creating Managed Metadata Service."
                 
-          	} else { info "Managed Metadata Service already exists."}
-    	} catch {
-    		Write-Output $_ 
-    	}
+              } else { info "Managed Metadata Service already exists."}
+        } catch {
+            Write-Output $_ 
+        }
     }
 }
 
@@ -106,11 +106,11 @@ function ProvisionUserProfileServiceApp($definitions) {
                 # create app
                 $profileServiceApp = CreateUserProfileServiceApp $def
                 
-				# Create Proxy
+                # Create Proxy
                 CreateUserProfileServiceProxy $serviceName $profileServiceApp
-    			
-    			## Grant Rights to App
-    			ApplyPermissionsToServiceApplication $serviceName $def.Get_Item("Permissions")
+                
+                ## Grant Rights to App
+                ApplyPermissionsToServiceApplication $serviceName $def.Get_Item("Permissions")
                 
                 ## All Done
                 info "Done"
@@ -140,7 +140,7 @@ function CreateUserProfileServiceApp($definition) {
 
     ## Get Managed Account
     $appPoolAccount = GetOrCreateManagedAccount $appPoolAccountName $appPoolAccountPwd
-  	if ($appPoolAccount -eq $null) { throw "Managed Account $appPoolAccountName not found" }
+      if ($appPoolAccount -eq $null) { throw "Managed Account $appPoolAccountName not found" }
     
     # Get App Pool
     $appPool = GetOrCreateServiceApplicationPool $appPoolName $appPoolAccount

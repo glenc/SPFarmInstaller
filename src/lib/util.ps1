@@ -4,14 +4,14 @@
 
 function LoadSharePointPowershell {
     if ((Get-PsSnapin |?{$_.Name -eq "Microsoft.SharePoint.PowerShell"})-eq $null) {
-       	Add-PsSnapin Microsoft.SharePoint.PowerShell -ErrorAction SilentlyContinue | Out-Null
+        Add-PsSnapin Microsoft.SharePoint.PowerShell -ErrorAction SilentlyContinue | Out-Null
     }
 }
 
 function Pause {
-	#From http://www.microsoft.com/technet/scriptcenter/resources/pstips/jan08/pstip0118.mspx
-	Write-Host "Press any key to exit..."
-	$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    #From http://www.microsoft.com/technet/scriptcenter/resources/pstips/jan08/pstip0118.mspx
+    Write-Host "Press any key to exit..."
+    $null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 }
 
 function info {
