@@ -19,7 +19,11 @@ $dp0 = [System.IO.Path]::GetDirectoryName($0)
 [xml]$ConfigFile = Get-Content $InputFile
 $Config = $ConfigFile.Configuration
 
+info "-----------------------------------------"
 info "Creating and configuring (or joining) farm"
+info "-----------------------------------------"
+
+LoadSharePointPowershell
 
 Start-SPAssignment -Global | Out-Null
 

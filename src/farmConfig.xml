@@ -6,15 +6,16 @@
 		<PathToInstallConfig>C:\SP2010\installConfig.xml</PathToInstallConfig>
 	</Installation>
 	<ManagedAccounts>
-		<Account name="farm" username="pico\svc.sp2010-farm" password="$harep0int"/>
+		<Account name="Farm Service Account" username="DOMAIN\account" password="***" />
+		<Account name="Default Content Access Account" username="DOMAIN\account" password="***" />
 	</ManagedAccounts>
 	<Farm>
-		<FarmSvcAccount>farm</FarmSvcAccount>
+		<FarmSvcAccount>Farm Service Account</FarmSvcAccount>
 		<Passphrase>$h4re!P01nt</Passphrase>
-		<DatabaseServer>SQLDEV2008</DatabaseServer>
+		<DatabaseServer>SQLSERVERNAME</DatabaseServer>
 		<ConfigDB>SP_Config</ConfigDB>
 		<CentralAdminContentDB>SP_AdminContent</CentralAdminContentDB>
-		<CentralAdminPort>65001</CentralAdminPort>
+		<CentralAdminPort>2010</CentralAdminPort>
 	</Farm>
 	<Topology>
 		<ServerGroups>

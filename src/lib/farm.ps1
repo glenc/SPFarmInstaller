@@ -3,6 +3,7 @@
 # ---------------------------------------------------------------
 
 function IsJoinedToFarm($config) {
+    debug "Checking if server is joined to farm"
     $configDb = $config.Farm.ConfigDB
     try {
         $farm = Get-SPFarm | Where-Object {$_.Name -eq $configDb} -ErrorAction SilentlyContinue
@@ -21,9 +22,9 @@ function CreateOrJoinFarm($config) {
     if (-not $?) {
         info "Farm does not exist.  Creating new Farm"
         sleep 5
-        CreateNewFarm $farmDefinition
+        CreateNewFarm $config
         
-        $isNewFarm = true
+        $isNewFarm = $true
         
     } else {
         info "Joined farm."
@@ -37,6 +38,7 @@ function CreateOrJoinFarm($config) {
 }
 
 function CreateNewFarm($config) {
+    debug "Creating new farm"
     $configDb = $config.Farm.ConfigDB
     $dbServer = $config.Farm.DatabaseServer
     $passPhrase = GetSecureString $config.Farm.Passphrase
@@ -90,7 +92,7 @@ function CreateCentralAdmin($config) {
         $newCentralAdmin = New-SPCentralAdministration -Port $port -WindowsAuthProvider "NTLM" -ErrorVariable err
         if (-not $?) {throw}
         
-        info "Waiting for Central Admin site to provision..."
+        debug " - Waiting for Central Admin site to provision..."
         $centralAdmin = Get-SPWebApplication -IncludeCentralAdministration | ? {$_.Url -like "http://$($env:COMPUTERNAME):$port*"}
         
         while ($centralAdmin.Status -ne "Online") {
@@ -98,7 +100,7 @@ function CreateCentralAdmin($config) {
             sleep 1
             $centralAdmin = Get-SPWebApplication -IncludeCentralAdministration | ? {$_.Url -like "http://$($env:COMPUTERNAME):$port*"}
         }
-        info "Done!"
+        debug " - Done!"
         
     } catch {
         if ($err -like "*update conflict*") {
