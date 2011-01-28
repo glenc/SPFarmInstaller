@@ -6,21 +6,28 @@
 # on each of your SharePoint Servers to join them to the farm.
 # ---------------------------------------------------------------
 
+param 
+(
+    [string]$InputFile = $(throw '- Need parameter input file (e.g. "farmConfig.xml")')
+)
+
 # load dependencies
 $0 = $myInvocation.MyCommand.Definition
 $dp0 = [System.IO.Path]::GetDirectoryName($0)
 . "$dp0\lib\package.ps1"
-. "$dp0\config.ps1"
+
+[xml]$ConfigFile = Get-Content $InputFile
+$Config = $ConfigFile.Configuration
 
 info "Creating and configuring (or joining) farm"
 
 Start-SPAssignment -Global | Out-Null
 
-if (IsJoinedToFarm $Farm -eq $false) {
-    $isNewFarm = CreateOrJoinFarm $Farm
+if (IsJoinedToFarm $config -eq $false) {
+    $isNewFarm = CreateOrJoinFarm $Config
     
     if ($isNewFarm -eq $true) {
-        InitializeNewFarm $Farm
+        InitializeNewFarm $Config
     }
     
 } else {

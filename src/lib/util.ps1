@@ -15,7 +15,7 @@ function Pause {
 }
 
 function info {
-    Write-Host -ForegroundColor Black $args
+    Write-Host -ForegroundColor White $args
 }
 
 function debug {
@@ -23,13 +23,14 @@ function debug {
 }
 
 function error {
-    Error $args
+    Write-Host -ForegroundColor Red $args
 }
 
-function warn {
-    Write-Warning $args
+function warn([string]$msg) {
+    Write-Warning $msg
 }
 
 function show-progress {
     Write-Host -ForegroundColor Blue "." -NoNewLine
 }
+

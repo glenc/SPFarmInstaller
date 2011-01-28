@@ -6,22 +6,31 @@
 # Run this on all of your SharePoint servers.
 # ---------------------------------------------------------------
 
+param
+(
+    [string]$InputFile = $(throw '- Need parameter input file (e.g. "farmConfig.xml")')
+)
+
 # load dependencies
 $0 = $myInvocation.MyCommand.Definition
 $dp0 = [System.IO.Path]::GetDirectoryName($0)
 . "$dp0\lib\package.ps1"
-. "$dp0\config.ps1"
 
+[xml]$ConfigFile = Get-Content $InputFile
+$Config = $ConfigFile.Configuration
+
+info "-----------------------------------------"
 info "Installing SharePoint Bits"
+info "-----------------------------------------"
 
 info "Checking installation account"
-CheckInstallationAccount $Farm
+CheckInstallationAccount $Config
 
 info "Checking for SQL Access"
-CheckSQLAccess $Farm
+CheckSQLAccess $Config
 
 info "Installing Prerequisites"
-InstallPrerequisites $PathToBits $OfflineInstallation
+InstallPrerequisites $Config
 
 info "Install SharePoint Bits"
-InstallSharePoint $PathToBits $PathToInstallConfig
+InstallSharePoint $Config

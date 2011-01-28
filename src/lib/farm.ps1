@@ -2,18 +2,18 @@
 # Farm Functions
 # ---------------------------------------------------------------
 
-function IsJoinedToFarm($farmDefinition) {
-    $configDb = $farmDefinition.Get_Item("ConfigDB")
+function IsJoinedToFarm($config) {
+    $configDb = $config.Farm.ConfigDB
     try {
         $farm = Get-SPFarm | Where-Object {$_.Name -eq $configDb} -ErrorAction SilentlyContinue
     } catch {""}
     return $farm -eq $null
 }
 
-function CreateOrJoinFarm($farmDefinition) {
-    $configDb = $farmDefinition.Get_Item("ConfigDB")
-    $dbServer = $farmDefinition.Get_Item("DatabaseServer")
-    $passPhrase = GetSecureString $farmDefinition.Get_Item("Passphrase")
+function CreateOrJoinFarm($config) {
+    $configDb = $config.Farm.ConfigDB
+    $dbServer = $config.Farm.DatabaseServer
+    $passPhrase = GetSecureString $config.Farm.Passphrase
     
     $isNewFarm = $false
     
@@ -36,19 +36,19 @@ function CreateOrJoinFarm($farmDefinition) {
     return $isNewFarm
 }
 
-function CreateNewFarm($farmDefinition) {
-    $configDb = $farmDefinition.Get_Item("ConfigDB")
-    $dbServer = $farmDefinition.Get_Item("DatabaseServer")
-    $passPhrase = GetSecureString $farmDefinition.Get_Item("Passphrase")
-    $centralAdminContentDb = $farmDefinition.Get_Item("CentralAdminContentDB")
-    $farmCred = GetCredential $farmDefinition.Get_Item("FarmSvcAccount") $farmDefinition.Get_Item("FarmSvcPwd")
+function CreateNewFarm($config) {
+    $configDb = $config.Farm.ConfigDB
+    $dbServer = $config.Farm.DatabaseServer
+    $passPhrase = GetSecureString $config.Farm.Passphrase
+    $centralAdminContentDb = $config.Farm.CentralAdminContentDB
+    $farmCred = GetCredential $config.Farm.FarmSvcAccount $config
     
     New-SPConfigurationDatabase -DatabaseName "$configDb" -DatabaseServer "$dbServer" -Passphrase $passPhrase -AdministrationContentDatabaseName "$centralAdminContentDb" -FarmCredentials $farmCred
     if (-not $?) { throw }
     else { info "Created new farm." }
 }
 
-function InitializeNewFarm($farmDefinition) {
+function InitializeNewFarm($config) {
     info "Initializing the new SharePoint Farm"
     
     try {
@@ -65,14 +65,14 @@ function InitializeNewFarm($farmDefinition) {
         Install-SPFeature -AllExistingFeatures -Force
         
         info " - Creating Central Admin..."
-        CreateCentralAdmin $farmDefinition
+        CreateCentralAdmin $config
         
         info " - Installing Application Content..."
         Install-SPApplicationContent
     } catch {
         if ($err -like "*update conflict*") {
             warn "A concurrency error occured, trying again."
-            CreateCentralAdmin $farmDefinition
+            CreateCentralAdmin $config
         } else {
             Write-Output $_
             Pause
@@ -83,8 +83,8 @@ function InitializeNewFarm($farmDefinition) {
     info "Completed initial farm/server config."
 }
 
-function CreateCentralAdmin($farmDefinition) {
-    $port = $farmDefinition.Get_Item("CentralAdminPort")
+function CreateCentralAdmin($config) {
+    $port = $config.Farm.CentralAdminPort
     
     try {
         $newCentralAdmin = New-SPCentralAdministration -Port $port -WindowsAuthProvider "NTLM" -ErrorVariable err
@@ -103,7 +103,7 @@ function CreateCentralAdmin($farmDefinition) {
     } catch {
         if ($err -like "*update conflict*") {
             warn "A concurrency error occured, trying again."
-            CreateCentralAdmin $farmDefinition
+            CreateCentralAdmin $config
         } else {
             Write-Output $_
             Pause

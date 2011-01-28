@@ -118,6 +118,8 @@ function ProvisionUserProfileServiceApp($definitions) {
             } else {
                 warn "User profile service application was already created."
             }
+        } catch {
+        	warn "Could not create application"
         }
     }
 }

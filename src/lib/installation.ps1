@@ -2,15 +2,15 @@
 # Installation Functions
 # ---------------------------------------------------------------
 
-function CheckInstallationAccount($farmDefinition) {
-    $farmAccount = $farmDefinition.Get_Item("FarmSvcAccount")
+function CheckInstallationAccount($config) {
+    $farmAccount = $config.ManagedAccounts.Account | Where-Object {$_.name -eq $config.Farm.FarmSvcAccount}
     if ($env:USERDOMAIN + "\" + $env:USERNAME -eq $farmAccount) {
         warn "Running install using Farm Account"
     }
 }
 
-function CheckSQLAccess($farmDefinition) {
-    $dbServer = $farmDefinition.Get_Item("DatabaseServer")
+function CheckSQLAccess($config) {
+    $dbServer = $config.Farm.DatabaseServer
     
     $sqlConnection = New-Object System.Data.SqlClient.SqlConnection
     $sqlCmd = New-Object System.Data.SqlClient.SqlCommand
@@ -27,8 +27,8 @@ function CheckSQLAccess($farmDefinition) {
         warn " - Check the server (or instance) name, or verify rights for $env:USERDOMAIN\$env:USERNAME"
         $SqlCmd.Connection.Close()
         Pause
-        break
-    }    
+        exit
+    }
     info " - $env:USERDOMAIN\$env:USERNAME has access."
     $SqlCmd.Connection.Close()
 }
@@ -37,7 +37,11 @@ function IsSharePointInstalled {
     return Test-Path "$env:CommonProgramFiles\Microsoft Shared\Web Server Extensions\14\BIN\stsadm.exe"
 }
 
-function InstallPrerequisites([string]$pathToBits, [bool]$offline) {
+function InstallPrerequisites($config) {
+    $pathToBits = $config.Installation.PathToBits
+    $pathToPrereqs = "$pathToBits\PrerequisiteInstallerFiles"
+    $offline = ($config.Installation.OfflineInstallation -eq "True")
+    
     if (IsSharePointInstalled) {
         info "Prerequisites appear to be already installed - skipping."
         return
@@ -45,23 +49,25 @@ function InstallPrerequisites([string]$pathToBits, [bool]$offline) {
     
     try {
         if ($offline) {
-            Start-Process "$pathToBits\PrerequisiteInstaller.exe" -Wait -ArgumentList "/unattended `
-                                                                                /SQLNCli:`"$pathToBits\PrerequisiteInstallerFiles\sqlncli.msi`" `
-                                                                                /ChartControl:`"$pathToBits\PrerequisiteInstallerFiles\MSChart.exe`" `
-                                                                                /NETFX35SP1:`"$pathToBits\PrerequisiteInstallerFiles\dotnetfx35.exe`" `
-                                                                                /PowerShell:`"$pathToBits\PrerequisiteInstallerFiles\Windows6.0-KB968930-x64.msu`" `
-                                                                                /KB976394:`"$pathToBits\PrerequisiteInstallerFiles\Windows6.0-KB976394-x64.msu`" `
-                                                                                /KB976462:`"$pathToBits\PrerequisiteInstallerFiles\Windows6.1-KB976462-v2-x64.msu`" `
-                                                                                /IDFX:`"$pathToBits\PrerequisiteInstallerFiles\Windows6.0-KB974405-x64.msu`" `
-                                                                                /IDFXR2:`"$pathToBits\PrerequisiteInstallerFiles\Windows6.1-KB974405-x64.msu`" `
-                                                                                /Sync:`"$pathToBits\PrerequisiteInstallerFiles\Synchronization.msi`" `
-                                                                                /FilterPack:`"$pathToBits\PrerequisiteInstallerFiles\FilterPack\FilterPack.msi`" `
-                                                                                /ADOMD:`"$pathToBits\PrerequisiteInstallerFiles\SQLSERVER2008_ASADOMD10.msi`" `
-                                                                                /ReportingServices:`"$pathToBits\PrerequisiteInstallerFiles\rsSharePoint.msi`" `
-                                                                                /Speech:`"$pathToBits\PrerequisiteInstallerFiles\SpeechPlatformRuntime.msi`" `
-                                                                                /SpeechLPK:`"$pathToBits\PrerequisiteInstallerFiles\MSSpeech_SR_en-US_TELE.msi`""                                                                        
+            info " - Installing prerequisites from $pathToPrereqs"
+            $argList = "/unattended `
+/SQLNCli:`"$pathToPrereqs\sqlncli.msi`" /ChartControl:`"$pathToPrereqs\MSChart.exe`" `
+/NETFX35SP1:`"$pathToPrereqs\dotnetfx35.exe`" /PowerShell:`"$pathToPrereqs\Windows6.0-KB968930-x64.msu`" `
+/KB976394:`"$pathToPrereqs\Windows6.0-KB976394-x64.msu`" `
+/KB976462:`"$pathToPrereqs\Windows6.1-KB976462-v2-x64.msu`" `
+/IDFX:`"$pathToPrereqs\Windows6.0-KB974405-x64.msu`" `
+/IDFXR2:`"$pathToPrereqs\Windows6.1-KB974405-x64.msu`" `
+/Sync:`"$pathToPrereqs\Synchronization.msi`" `
+/FilterPack:`"$pathToPrereqs\FilterPack\FilterPack.msi`" `
+/ADOMD:`"$pathToPrereqs\SQLSERVER2008_ASADOMD10.msi`" `
+/ReportingServices:`"$pathToPrereqs\rsSharePoint.msi`" `
+/Speech:`"$pathToPrereqs\SpeechPlatformRuntime.msi`" `
+/SpeechLPK:`"$pathToPrereqs\MSSpeech_SR_en-US_TELE.msi`""
+            
+            Start-Process "$pathToBits\PrerequisiteInstaller.exe" -Wait -ArgumentList $argList                                                                 
             if (-not $?) {throw}
         } else {
+            info " - Installing prerequisites from remote store..."
             Start-Process "$pathToBits\PrerequisiteInstaller.exe" -Wait -ArgumentList "/unattended" -WindowStyle Minimized
             if (-not $?) {throw}
         }
@@ -88,7 +94,7 @@ function InstallPrerequisites([string]$pathToBits, [bool]$offline) {
             info " - Review the log file and try to correct any error conditions."
             Pause
             Invoke-Item $env:TEMP\$PreReqLog
-            break
+            exit
         }
         
         # Look for restart requirement in log
@@ -97,14 +103,17 @@ function InstallPrerequisites([string]$pathToBits, [bool]$offline) {
             warn " - One or more of the prerequisites requires a restart."
             info " - Run the script again after restarting to continue."
             Pause
-            break
+            exit
         }
     }
         
     info "All Prerequisite Software installed successfully."
 }
 
-function InstallSharePoint([string]$pathToBits, [string]$pathToConfigFile) {
+function InstallSharePoint($config) {
+    $pathToBits = $config.Installation.PathToBits
+    $pathToConfigFile = $config.Installation.PathToInstallConfig
+    
     if (IsSharePointInstalled) {
         info "SharePoint binaries appear to be already installed - skipping."
         return
@@ -113,7 +122,7 @@ function InstallSharePoint([string]$pathToBits, [string]$pathToConfigFile) {
     if (-not (Test-Path "$pathToBits\setup.exe")) {
         warn "Could not find SharePoint setup.exe"
         Pause
-        break
+        exit
     }
     
     try {
@@ -121,7 +130,8 @@ function InstallSharePoint([string]$pathToBits, [string]$pathToConfigFile) {
         If (-not $?) {throw}
     } catch {
         warn "Error $LastExitCode occurred running $bits\setup.exe"
-        break
+        Pause
+        exit
     }
     
     # Parsing most recent SharePoint Server Setup log for errors or restart requirements, since $LastExitCode doesn't seem to work...
@@ -129,7 +139,7 @@ function InstallSharePoint([string]$pathToBits, [string]$pathToConfigFile) {
     if ($setupLog -eq $null) {
         warn " - Could not find SharePoint Server Setup log file!"
         Pause
-        break
+        exit
     } else {
         # Get error(s) from log
         $setupLastError = $setupLog | select-string -SimpleMatch -Pattern "Error:" | Select-Object -Last 1 #| ? {$_.Line  -notlike "*Startup task*"}
@@ -138,7 +148,7 @@ function InstallSharePoint([string]$pathToBits, [string]$pathToConfigFile) {
             info " - Review the log file and try to correct any error conditions."
             Pause
             Invoke-Item $env:TEMP\$SetupLog
-            break
+            exit
         }
         
         # Look for restart requirement in log
@@ -147,7 +157,7 @@ function InstallSharePoint([string]$pathToBits, [string]$pathToConfigFile) {
             info " - SharePoint setup requires a restart."
             info " - Run the script again after restarting to continue."
             Pause
-            break
+            exit
         }
     }
     
