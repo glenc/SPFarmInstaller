@@ -1,66 +1,142 @@
 <?xml version="1.0" ?>
 <Configuration>
-	<Installation>
-		<OfflineInstallation>False</OfflineInstallation>
-		<PathToBits>C:\SP2010\SharePointInstallerFiles</PathToBits>
-		<PathToInstallConfig>C:\SP2010\installConfig.xml</PathToInstallConfig>
-	</Installation>
-	<ManagedAccounts>
-		<Account name="Farm Service Account" username="DOMAIN\account" password="***" />
-		<Account name="Default Content Access Account" username="DOMAIN\account" password="***" />
-	</ManagedAccounts>
-	<Farm>
-		<FarmSvcAccount>Farm Service Account</FarmSvcAccount>
-		<Passphrase>$h4re!P01nt</Passphrase>
-		<DatabaseServer>SQLSERVERNAME</DatabaseServer>
-		<ConfigDB>SP_Config</ConfigDB>
-		<CentralAdminContentDB>SP_AdminContent</CentralAdminContentDB>
-		<CentralAdminPort>2010</CentralAdminPort>
-	</Farm>
-	<Topology>
-		<ServerGroups>
-			<Group name="WFE Servers">
-				<Server name="SP2010-FARM-01"/>
-				<Server name="SP2010-FARM-02"/>
-			</Group>
-			<Group name="App Servers">
-				<Server name="SP2010-FARM-01"/>
-			</Group>
-		</ServerGroups>
-		
-		<Service name="CentralAdmin" 		runningOn="SP2010-FARM-01, SP2010-FARM-02" />
-		<Service name="ManagedMetadata" 	runningOn="App Servers" />
-		<Service name="UserProfileService" 	runningOn="App Servers" />
-		<Service name="SandboxSolutions" 	runningOn="App Servers" />
-		
-		<Service name="SearchQuery" 		runningOn="App Servers" />
-		<Service name="SearchIndex" 		runningOn="SP2010-FARM-02" />
-		
-	</Topology>
-	<ServiceApplications>
-		<ManagedMetadataApplication name="Internal Managed Metadata">
-			<DBName>MMS_DB</DBName>
-			<AppPool account="farm">MMS_AppPool</AppPool>
-			<Partitioned>False</Partitioned>
-			<AdminAccount>farm</AdminAccount>
-			<Permissions>
-				<Grant account="farm" rights="Full Access to Term Store" />
-				<Grant account="asdf" rights="Full Access to Term Store" />
-			</Permissions>
-		</ManagedMetadataApplication>
-		
-		<UserProfileApplication name="User Profiles">
-			<AppPool account="farm">UPS_AppPool</AppPool>
-			<ProfileDB>SP_Profiles</ProfileDB>
-			<ProfileSyncDB>SP_ProfileSync</ProfileSyncDB>
-			<SocialDB>SP_SocialDB</SocialDB>
-			
-			<MySites />
-			
-			<Permissions>
-				<Grant account="farm" rights="Full Control" />
-				<Grant account="asdf" rights="Retrieve People Data for Search Crawlers" />
-			</Permissions>
-		</UserProfileApplication>
-	</ServiceApplications>
+    <Installation>
+        <OfflineInstallation>True</OfflineInstallation>
+        <PathToBits>C:\SP2010\SharePointInstallerFiles</PathToBits>
+        <PathToInstallConfig>C:\SP2010\installConfig.xml</PathToInstallConfig>
+    </Installation>
+    <ManagedAccounts>
+        <Account name="Farm Service Account" username="DOMAIN\account" password="***" />
+        <Account name="Default Content Access Account" username="DOMAIN\account" password="***" />
+    </ManagedAccounts>
+    <Farm>
+        <FarmSvcAccount>Farm Service Account</FarmSvcAccount>
+        <Passphrase>$h4re!P01nt</Passphrase>
+        <DatabaseServer>SQLSERVERNAME</DatabaseServer>
+        <ConfigDB>SP_Config</ConfigDB>
+        <CentralAdminContentDB>SP_AdminContent</CentralAdminContentDB>
+        <CentralAdminPort>2010</CentralAdminPort>
+    </Farm>
+    <Topology>
+        <ServerGroups>
+            <!--
+                You may define groups of servers below.  Defining groups
+                is recommended to make it easier to assign services to your
+                servers.  For example, you can specify that the Managed 
+                Metadata service should be started on all App Servers withou
+                having to enter the individual server names each time.
+            -->
+            <Group name="WFE Servers">
+                <Server name="localhost"/>
+            </Group>
+            <Group name="App Servers">
+                <Server name="localhost"/>
+            </Group>
+            <Group name="Search Query Servers">
+                <Server name="localhost"/>
+            </Group>
+            <Group name="Search Index Servers">
+                <Server name="localhost"/>
+            </Group
+        </ServerGroups>
+        
+        <!--
+            For each service below, in the "runningOn" attribute, enter the serves
+            that should be running that service.  You may enter the name of a 
+            Server Group defined above, or the name of one or more servers.
+            If the service should not be running at all, use "none".
+            
+            Examples:
+            
+            The service will be started on the current server only
+            <Service name="ManagedMetadata" runningOn="localhost" />
+            
+            The service will be started on all servers in the WFE Servers group
+            <Service name="ManagedMetadata" runningOn="WFE Servers" />
+            
+            The service will be started on the SERVER1 server
+            <Service name="ManagedMetadata" runningOn="SERVER1" />
+            
+            The service will be started on SERVER1 and SERVER2
+            <Service name="ManagedMetadata" runningOn="SERVER1, SERVER2" />
+            
+            The service will not be started
+            <Service name="ManagedMetadata" runningOn="none" />
+        -->
+        
+        <!-- Managed Metadata -->
+        <Service name="ManagedMetadata"                  runningOn="App Servers" />
+        
+        <!-- Business Data Connectivity -->
+        <Service name="ApplicationRegistryService"       runningOn="none" />
+        <Service name="BusinessDataConnectivityService"  runningOn="App Servers" />
+        
+        <!-- User Profiles -->
+        <Service name="UserProfileService"               runningOn="App Servers" />
+        <Service name="UserProfileSyncService"           runningOn="App Servers" />
+        
+        <!-- Enterprise Search -->
+        <Service name="EnterpriseSearchIndexer"          runningOn="Search Index Servers" />
+        <Service name="EnterpriseSearchQuery"            runningOn="Search Query Servers" />
+        
+        <!-- Office Services -->
+        <Service name="AccessService"                    runningOn="none" />
+        <Service name="ExcelCalculationServices"         runningOn="none" />
+        <Service name="PerformancePoint"                 runningOn="none" />
+        <Service name="VisioGraphics"                    runningOn="none" />
+        <Service name="WordAutomation"                   runningOn="none" />
+        
+        <!-- Document Conversions -->
+        <Service name="DocumentConversionsLauncher"      runningOn="none" />
+        <Service name="DocumentConversionsLoadBalancer"  runningOn="none" />
+        
+        <!-- Web Analytics -->
+        <Service name="WebAnalyticsWebService"           runningOn="App Servers" />
+        <Service name="WebAnalyticsDataProcessing"       runningOn="App Servers" />
+        
+        <!-- Other Services -->
+        <Service name="SearchQueryAndSiteSettings"       runningOn="WFE Servers, App Servers" />
+        <Service name="SecureStore"                      runningOn="none" />
+        <Service name="SubscriptionSettings"             runningOn="none" />
+        <Service name="SandboxedCode"                    runningOn="App Servers" />
+        <Service name="IncomingEmail"                    runningOn="none" />
+        <Service name="WorkflowTimerService"             runningOn="none" />
+        <Service name="ClaimsToWindowsTokenService"      runningOn="none" />
+        
+        <!-- Lotus Notes Connector -->
+        <Service name="LotusNotesConnector"              runningOn="none" />
+        
+        <!-- Basic WSS Search -->
+        <Service name="SharePointSearch"                 runningOn="none" />
+        
+        <!-- WFE -->
+        <Service name="WebApplication"                   runningOn="WFE Servers" />
+        
+    </Topology>
+    <ServiceApplications>
+        <ManagedMetadataApplication name="Internal Managed Metadata">
+            <DBName>MMS_DB</DBName>
+            <AppPool account="farm">MMS_AppPool</AppPool>
+            <Partitioned>False</Partitioned>
+            <AdminAccount>farm</AdminAccount>
+            <Permissions>
+                <Grant account="farm" rights="Full Access to Term Store" />
+                <Grant account="asdf" rights="Full Access to Term Store" />
+            </Permissions>
+        </ManagedMetadataApplication>
+        
+        <UserProfileApplication name="User Profiles">
+            <AppPool account="farm">UPS_AppPool</AppPool>
+            <ProfileDB>SP_Profiles</ProfileDB>
+            <ProfileSyncDB>SP_ProfileSync</ProfileSyncDB>
+            <SocialDB>SP_SocialDB</SocialDB>
+            
+            <MySites />
+            
+            <Permissions>
+                <Grant account="farm" rights="Full Control" />
+                <Grant account="asdf" rights="Retrieve People Data for Search Crawlers" />
+            </Permissions>
+        </UserProfileApplication>
+    </ServiceApplications>
 </Configuration>

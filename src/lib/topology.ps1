@@ -2,26 +2,87 @@
 # Topology Functions
 # ---------------------------------------------------------------
 
+function ConfigureTopology($config) {
+    # All services and their associated type.  This serves two purposes:
+    #  first, it provides a link between the friendly name and the full type name
+    #  it serves as the list of services which can be blindly started on a server
+    #  without additional configuration
+    $services = @{
+        "AccessService" = "Microsoft.Office.Access.Server.MossHost.AccessServerWebServiceInstance";
+        "ExcelCalculationServices" = "Microsoft.Office.Excel.Server.MossHost.ExcelServerWebServiceInstance";
+        "PerformancePoint" = "Microsoft.PerformancePoint.Scorecards.BIMonitoringServiceInstance";
+        "VisioGraphics" = "Microsoft.Office.Visio.Server.Administration.VisioGraphicsServiceInstance";
+        "WordAutomation" = "Microsoft.Office.Word.Server.Service.WordServiceInstance";
+        "ApplicationRegistryService" = "Microsoft.Office.Server.ApplicationRegistry.SharedService.ApplicationRegistryServiceInstance";
+        "BusinessDataConnectivityService" = "Microsoft.SharePoint.BusinessData.SharedService.BdcServiceInstance";
+        #"DocumentConversionsLauncher" = "Microsoft.Office.Server.Conversions.LauncherServiceInstance";
+        #"DocumentConversionsLoadBalancer" = "Microsoft.Office.Server.Conversions.LoadBalancerServiceInstance";
+        "LotusNotesConnector" = "Microsoft.Office.Server.Search.Administration.NotesWebServiceInstance";
+        "SearchQueryAndSiteSettings" = "Microsoft.Office.Server.Search.Administration.SearchQueryAndSiteSettingsServiceInstance";
+        "SecureStore" = "Microsoft.Office.SecureStoreService.Server.SecureStoreServiceInstance";
+        "SubscriptionSettings" = "Microsoft.SharePoint.SPSubscriptionSettingsServiceInstance";
+        "SandboxedCode" = "Microsoft.SharePoint.Administration.SPUserCodeServiceInstance";
+        "ManagedMetadata" = "Microsoft.SharePoint.Taxonomy.MetadataWebServiceInstance";
+        "UserProfileService" = "Microsoft.Office.Server.Administration.UserProfileServiceInstance";
+        "UserProfileSyncService" = "Microsoft.Office.Server.Administration.ProfileSynchronizationServiceInstance";
+        "WebAnalyticsWebService" = "Microsoft.Office.Server.WebAnalytics.Administration.WebAnalyticsWebServiceInstance";
+        "WebAnalyticsDataProcessing" = "Microsoft.Office.Server.WebAnalytics.Administration.WebAnalyticsServiceInstance";
+        "IncomingEmail" = "Microsoft.SharePoint.Administration.SPIncomingEmailServiceInstance";
+        "SharePointSearch" = "Microsoft.SharePoint.Search.Administration.SPSearchServiceInstance";
+        "WebApplication" = "Microsoft.SharePoint.Administration.SPWebServiceInstance";
+        "WorkflowTimerService" = "Microsoft.SharePoint.Workflow.SPWorkflowTimerServiceInstance";
+        "ClaimsToWindowsTokenService" = "Microsoft.SharePoint.Administration.Claims.SPWindowsTokenServiceInstance"
+    }
+    
+    $topology = $config.Topology
+    foreach ($key in $services.Keys) {
+        $serviceDef = $topology.Service | Where-Object { $_.name -eq $key }
+        if ($serviceDef -ne $null) {
+            $servers = GetServerNames $serviceDef.runningOn $config
+            if ($servers -ne "none") {
+                info "Starting $key on $servers"
+                StartServiceOnServers $services.Get_Item($key) $servers
+            }
+        }
+    }
+}
+
+function GetServerNames([string]$reference, $config) {
+    $serverNames = @()
+    $refNames = $reference.Split(",")
+    $refNames | foreach {
+        $nm = $_.Trim()
+        if ($config.Topology.ServerGroups -ne $null) {
+            $group = $config.Topology.ServerGroups.Group | Where-Object { $_.name -eq $nm }
+        }
+        if ($group -eq $null) {
+            $serverNames += $nm
+        } else {
+            $group.Server | foreach { $serverNames += $_.name }
+        }
+    }
+    return $serverNames
+}
+
 function StartService([string]$service, [string]$server) {
-    info "Starting service", $service, "on server", $server
+    debug "  Starting service", $service, "on server", $server
     $svc = GetServiceInstance $service $server
     if ($svc.Status -eq "Disabled") {
         try {
-            debug "Got service, attempt to start..."
             $svc | Start-SPServiceInstance | Out-Null
             if (-not $?) { throw "Failed to start service" }
         } catch {
-            "An error occurred starting service"
+            warn "An error occurred starting service"
         }
         
         # wait for service to start
-        debug "Waiting for service to start"
+        debug "  Waiting for service to start"
         while ($svc.Status -ne "Online") {
             show-progress
             sleep 1
             $svc = GetServiceInstance $service $server
         }
-        debug "Started!"
+        debug "  Started!"
     }
 }
 
@@ -36,31 +97,9 @@ function StartServiceOnLocal([string]$service) {
 }
 
 function GetServiceInstance([string]$service, [string]$server) {
-    if ($server -eq $null) {
+    if ($server -eq $null -or $server -eq "localhost") {
         return Get-SPServiceInstance | ? {$_.GetType().ToString() -eq $service}
     } else {
         return Get-SPServiceInstance -Server $server | ? {$_.GetType().ToString() -eq $service}
     }
-}
-
-function ConfigureTopology($topology) {
-    # names of specific services
-    $keys = @{
-        "SandboxSolution"    = "Microsoft.SharePoint.Administration.SPUserCodeServiceInstance";
-        "ManagedMetadata"    = "Microsoft.SharePoint.Taxonomy.MetadataWebServiceInstance";
-        "UserProfileService" = "Microsoft.Office.Server.Administration.UserProfileServiceInstance";
-        #"SearchQueryAndSiteSettings" = "Microsoft.Office.Server.Search.Administration.SearchQueryAndSiteSettingsServiceInstance"
-    }
-    
-    foreach ($key in $keys.Keys) {
-        if ($topology.ContainsKey($key + "Servers")) {
-            $servers = $topology.Get_Item($key + "Servers")
-            $service = $keys.Get_Item($key)
-            StartServiceOnServers $service $servers
-        }
-    }
-    
-    # also provision the following on all WFE servers
-    $wfeServers = $topology.Get_Item("WebFrontEndServers")
-    StartServiceOnServers "Microsoft.Office.Server.Search.Administration.SearchQueryAndSiteSettingsServiceInstance" $wfeServers
 }
