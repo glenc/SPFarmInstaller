@@ -16,26 +16,33 @@ $0 = $myInvocation.MyCommand.Definition
 $dp0 = [System.IO.Path]::GetDirectoryName($0)
 . "$dp0\lib\package.ps1"
 
-[xml]$ConfigFile = Get-Content $InputFile
-$Config = $ConfigFile.Configuration
+try {
 
-info "-----------------------------------------"
-info "Creating and configuring (or joining) farm"
-info "-----------------------------------------"
+    [xml]$ConfigFile = Get-Content $InputFile
+    $Config = $ConfigFile.Configuration
 
-LoadSharePointPowershell
+    info "-----------------------------------------"
+    info "Creating and configuring (or joining) farm"
+    info "-----------------------------------------"
 
-Start-SPAssignment -Global | Out-Null
+    LoadSharePointPowershell
 
-if (IsJoinedToFarm $config -eq $false) {
-    $isNewFarm = CreateOrJoinFarm $Config
-    
-    if ($isNewFarm -eq $true) {
-        InitializeNewFarm $Config
+    Start-SPAssignment -Global | Out-Null
+
+    if (IsJoinedToFarm $config -eq $false) {
+        $isNewFarm = CreateOrJoinFarm $Config
+        
+        if ($isNewFarm -eq $true) {
+            InitializeNewFarm $Config
+        }
+        
+    } else {
+        info "This server is already connect to the Farm."
     }
-    
-} else {
-    info "This server is already connect to the Farm."
-}
 
-Stop-SPAssignment -Global | Out-Null
+} catch {
+    throw
+    break
+} finally {
+    Stop-SPAssignment -Global | Out-Null
+}

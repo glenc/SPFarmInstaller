@@ -37,7 +37,7 @@
             </Group>
             <Group name="Search Index Servers">
                 <Server name="localhost"/>
-            </Group
+            </Group>
         </ServerGroups>
         
         <!--

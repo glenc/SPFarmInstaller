@@ -16,21 +16,28 @@ $0 = $myInvocation.MyCommand.Definition
 $dp0 = [System.IO.Path]::GetDirectoryName($0)
 . "$dp0\lib\package.ps1"
 
-[xml]$ConfigFile = Get-Content $InputFile
-$Config = $ConfigFile.Configuration
+try {
 
-info "-----------------------------------------"
-info "Installing SharePoint Bits"
-info "-----------------------------------------"
+    [xml]$ConfigFile = Get-Content $InputFile
+    $Config = $ConfigFile.Configuration
 
-info "Checking installation account"
-CheckInstallationAccount $Config
+    info "-----------------------------------------"
+    info "Installing SharePoint Bits"
+    info "-----------------------------------------"
 
-info "Checking for SQL Access"
-CheckSQLAccess $Config
+    info "Checking installation account"
+    CheckInstallationAccount $Config
 
-info "Installing Prerequisites"
-InstallPrerequisites $Config
+    info "Checking for SQL Access"
+    CheckSQLAccess $Config
 
-info "Install SharePoint Bits"
-InstallSharePoint $Config
+    info "Installing Prerequisites"
+    InstallPrerequisites $Config
+
+    info "Install SharePoint Bits"
+    InstallSharePoint $Config
+
+} catch {
+    throw
+    break
+}

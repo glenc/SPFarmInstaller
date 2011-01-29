@@ -67,7 +67,13 @@ function GetServerNames([string]$reference, $config) {
 function StartService([string]$service, [string]$server) {
     debug "  Starting service", $service, "on server", $server
     $svc = GetServiceInstance $service $server
-    if ($svc.Status -eq "Disabled") {
+    
+    if ($svc -eq $null) {
+        warn "Could not get service instance on server $server"
+        return
+    }
+    
+    if ($svc.Status.ToString() -eq "Disabled") {
         try {
             $svc | Start-SPServiceInstance | Out-Null
             if (-not $?) { throw "Failed to start service" }
@@ -83,6 +89,8 @@ function StartService([string]$service, [string]$server) {
             $svc = GetServiceInstance $service $server
         }
         debug "  Started!"
+    } else {
+        debug "  Already started"
     }
 }
 
@@ -97,9 +105,20 @@ function StartServiceOnLocal([string]$service) {
 }
 
 function GetServiceInstance([string]$service, [string]$server) {
+    $found = $null
     if ($server -eq $null -or $server -eq "localhost") {
-        return Get-SPServiceInstance | ? {$_.GetType().ToString() -eq $service}
+        $found = Get-SPServiceInstance | ? {$_.GetType().ToString() -eq $service}
     } else {
-        return Get-SPServiceInstance -Server $server | ? {$_.GetType().ToString() -eq $service}
+        $found = Get-SPServiceInstance -Server $server | ? {$_.GetType().ToString() -eq $service}
+    }
+    
+    if ($found -eq $null -or $found.Count -eq 0) {
+        return $null
+    }
+    
+    if ($found.Count -ge 1) {
+        return $found[0]
+    } else {
+        return $found
     }
 }
