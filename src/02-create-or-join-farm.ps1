@@ -33,7 +33,7 @@ try {
         $isNewFarm = CreateOrJoinFarm $Config
         
         if ($isNewFarm -eq $true) {
-            InitializeNewFarm $Config
+            CreateCentralAdmin $Config
         }
         
     } else {

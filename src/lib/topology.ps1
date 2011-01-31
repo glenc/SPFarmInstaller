@@ -15,8 +15,7 @@ function ConfigureTopology($config) {
         "WordAutomation" = "Microsoft.Office.Word.Server.Service.WordServiceInstance";
         "ApplicationRegistryService" = "Microsoft.Office.Server.ApplicationRegistry.SharedService.ApplicationRegistryServiceInstance";
         "BusinessDataConnectivityService" = "Microsoft.SharePoint.BusinessData.SharedService.BdcServiceInstance";
-        #"DocumentConversionsLauncher" = "Microsoft.Office.Server.Conversions.LauncherServiceInstance";
-        #"DocumentConversionsLoadBalancer" = "Microsoft.Office.Server.Conversions.LoadBalancerServiceInstance";
+        "DocumentConversionsLoadBalancer" = "Microsoft.Office.Server.Conversions.LoadBalancerServiceInstance";
         "LotusNotesConnector" = "Microsoft.Office.Server.Search.Administration.NotesWebServiceInstance";
         "SearchQueryAndSiteSettings" = "Microsoft.Office.Server.Search.Administration.SearchQueryAndSiteSettingsServiceInstance";
         "SecureStore" = "Microsoft.Office.SecureStoreService.Server.SecureStoreServiceInstance";
@@ -24,7 +23,6 @@ function ConfigureTopology($config) {
         "SandboxedCode" = "Microsoft.SharePoint.Administration.SPUserCodeServiceInstance";
         "ManagedMetadata" = "Microsoft.SharePoint.Taxonomy.MetadataWebServiceInstance";
         "UserProfileService" = "Microsoft.Office.Server.Administration.UserProfileServiceInstance";
-        "UserProfileSyncService" = "Microsoft.Office.Server.Administration.ProfileSynchronizationServiceInstance";
         "WebAnalyticsWebService" = "Microsoft.Office.Server.WebAnalytics.Administration.WebAnalyticsWebServiceInstance";
         "WebAnalyticsDataProcessing" = "Microsoft.Office.Server.WebAnalytics.Administration.WebAnalyticsServiceInstance";
         "IncomingEmail" = "Microsoft.SharePoint.Administration.SPIncomingEmailServiceInstance";
@@ -32,6 +30,10 @@ function ConfigureTopology($config) {
         "WebApplication" = "Microsoft.SharePoint.Administration.SPWebServiceInstance";
         "WorkflowTimerService" = "Microsoft.SharePoint.Workflow.SPWorkflowTimerServiceInstance";
         "ClaimsToWindowsTokenService" = "Microsoft.SharePoint.Administration.Claims.SPWindowsTokenServiceInstance"
+        
+        # these services cannot be provisined here because they require configuration
+        #"DocumentConversionsLauncher" = "Microsoft.Office.Server.Conversions.LauncherServiceInstance";
+        #"UserProfileSyncService" = "Microsoft.Office.Server.Administration.ProfileSynchronizationServiceInstance";
     }
     
     $topology = $config.Topology
@@ -65,7 +67,9 @@ function GetServerNames([string]$reference, $config) {
 }
 
 function StartService([string]$service, [string]$server) {
-    debug "  Starting service", $service, "on server", $server
+    $tmp = $service.Split(".")
+    $shortName = $tmp[$tmp.Length - 1]
+    debug "  Starting service", $shortName, "on server", $server
     $svc = GetServiceInstance $service $server
     
     if ($svc -eq $null) {

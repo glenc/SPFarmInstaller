@@ -28,7 +28,7 @@ New-Item -ItemType Directory $DestFolder -ErrorAction SilentlyContinue
 $UrlList = @{
     "Synchronization.msi" = "http://go.microsoft.com/fwlink/?LinkID=141237&clcid=0x409";
     "MSChart.exe" = "http://download.microsoft.com/download/c/c/4/cc4dcac6-ea60-4868-a8e0-62a8510aa747/MSChart.exe";
-    "dotnetfx35.exe" = "http://go.microsoft.com/fwlink/?LinkId=131037";
+    "dotnetfx35.exe" = "http://download.microsoft.com/download/2/0/e/20e90413-712f-438c-988e-fdaa79a8ac3d/dotnetfx35.exe";
     "Windows6.0-KB968930-x64.msu" = "http://download.microsoft.com/download/2/8/6/28686477-3242-4E96-9009-30B16BED89AF/Windows6.0-KB968930-x64.msu";
     "Windows6.1-KB974405-x64.msu" = "http://go.microsoft.com/fwlink/?LinkID=166363";
     "Windows6.0-KB976394-x64.msu" = "http://go.microsoft.com/fwlink/?linkID=160770";

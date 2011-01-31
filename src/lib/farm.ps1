@@ -3,7 +3,7 @@
 # ---------------------------------------------------------------
 
 function IsJoinedToFarm($config) {
-    debug "Checking if server is joined to farm"
+    debug " - Checking if server is joined to farm"
     $configDb = $config.Farm.ConfigDB
     try {
         $farm = Get-SPFarm | Where-Object {$_.Name -eq $configDb} -ErrorAction SilentlyContinue
@@ -30,6 +30,21 @@ function CreateOrJoinFarm($config) {
         info "Joined farm."
     }
     
+    info " - Installing Help Collection..."
+    Install-SPHelpCollection -All
+    
+    info " - Securing Resources..."
+    Initialize-SPResourceSecurity
+    
+    info " - Installing Services..."
+    Install-SPService
+    
+    info " - Installing Features..."
+    Install-SPFeature -AllExistingFeatures -Force
+    
+    info " - Installing Application Content..."
+    Install-SPApplicationContent
+    
     # version registry workaround for bug in PS-based install
     $build = "$($(Get-SPFarm).BuildVersion.Major).0.0.$($(Get-SPFarm).BuildVersion.Build)"
     New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Shared Tools\Web Server Extensions\14.0\' -Name Version -Value $build -ErrorAction SilentlyContinue | Out-Null
@@ -38,7 +53,7 @@ function CreateOrJoinFarm($config) {
 }
 
 function CreateNewFarm($config) {
-    debug "Creating new farm"
+    debug " - Creating new farm"
     $configDb = $config.Farm.ConfigDB
     $dbServer = $config.Farm.DatabaseServer
     $passPhrase = GetSecureString $config.Farm.Passphrase
@@ -50,42 +65,8 @@ function CreateNewFarm($config) {
     else { info "Created new farm." }
 }
 
-function InitializeNewFarm($config) {
-    info "Initializing the new SharePoint Farm"
-    
-    try {
-        info " - Installing Help Collection..."
-        Install-SPHelpCollection -All
-            
-        info " - Securing Resources..."
-        Initialize-SPResourceSecurity
-        
-        info " - Installing Services..."
-        Install-SPService
-        
-        info " - Installing Features..."
-        Install-SPFeature -AllExistingFeatures -Force
-        
-        info " - Creating Central Admin..."
-        CreateCentralAdmin $config
-        
-        info " - Installing Application Content..."
-        Install-SPApplicationContent
-    } catch {
-        if ($err -like "*update conflict*") {
-            warn "A concurrency error occured, trying again."
-            CreateCentralAdmin $config
-        } else {
-            Write-Output $_
-            Pause
-            break
-        }
-    }
-    
-    info "Completed initial farm/server config."
-}
-
 function CreateCentralAdmin($config) {
+	info "Creating SharePoint Central Administratino Site"
     $port = $config.Farm.CentralAdminPort
     
     try {
