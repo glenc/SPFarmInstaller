@@ -34,13 +34,14 @@ function ApplyPermissionsToServiceApplication($serviceAppToSecure, $permissions,
 
 function ProvisionMetadataServiceApp($config) {
     foreach ($def in $config.ServiceApplications.ManagedMetadataApplication) {
-        debug $def
+        $serviceName = $def.name
+        $partitioned = $def.Partitioned -eq "True"
+        $adminAccount = GetManagedAccountUsername $def.AdminAccount $config
+        
         info "Creating Managed Metadata Service Application"
-        debug "  Name:" $def.name
+        debug "  Name:" $serviceName
         debug "  AppPool:" $def.AppPool.name
         debug "  DBName:" $def.DBName
-        
-        $partitioned = $def.Partitioned -eq "True"
         if ($partitioned) { debug "  Partitioned" }
         
         try {
@@ -55,16 +56,13 @@ function ProvisionMetadataServiceApp($config) {
             
                 info "Creating Managed Metadata Service"
                 
-                $adminAccount = GetManagedAccountUsername $def.AdminAccount $config
-                debug "  Admin Account: $adminAccount"
-                
                 ## Create Service App
                 info "Creating Metadata Service Application..."
                 if ($partitioned) {
-                    $metaDataServiceApp  = New-SPMetadataServiceApplication -PartitionMode -Name $def.name -ApplicationPool $appPool -DatabaseName $def.DBName -AdministratorAccount $adminAccount -FullAccessAccount $adminAccount
+                    $metaDataServiceApp  = New-SPMetadataServiceApplication -PartitionMode -Name $serviceName -ApplicationPool $appPool -DatabaseName $def.DBName -AdministratorAccount $adminAccount -FullAccessAccount $adminAccount
                     if (-not $?) { throw "Failed to create Metadata Service Application" }
                 } else {
-                    $metaDataServiceApp  = New-SPMetadataServiceApplication -Name $def.name -ApplicationPool $appPool -DatabaseName $def.DBName -AdministratorAccount $adminAccount -FullAccessAccount $adminAccount
+                    $metaDataServiceApp  = New-SPMetadataServiceApplication -Name $serviceName -ApplicationPool $appPool -DatabaseName $def.DBName -AdministratorAccount $adminAccount -FullAccessAccount $adminAccount
                     if (-not $?) { throw "Failed to create Metadata Service Application" }
                 }
                 
