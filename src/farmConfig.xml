@@ -113,15 +113,19 @@
         <Service name="WebApplication"                   runningOn="WFE Servers" />
         
     </Topology>
+    <WebApplications>
+        <WebApplication name="Internal Portals">
+            <AppPool account="Farm Service Account">General Services</AppPool>
+        </WebApplication>
+    </WebApplications>
     <ServiceApplications>
-        <ManagedMetadataApplication name="Internal Managed Metadata">
+        <ManagedMetadataApplication name="Managed Metadata">
             <DBName>MMS_DB</DBName>
-            <AppPool account="farm">MMS_AppPool</AppPool>
+            <AppPool name="Managed Metadata App Pool" account="Farm Service Account" />
             <Partitioned>False</Partitioned>
-            <AdminAccount>farm</AdminAccount>
+            <AdminAccount>Farm Service Account</AdminAccount>
             <Permissions>
-                <Grant account="farm" rights="Full Access to Term Store" />
-                <Grant account="asdf" rights="Full Access to Term Store" />
+                <Grant account="Farm Service Account" rights="Full Access to Term Store" />
             </Permissions>
         </ManagedMetadataApplication>
         

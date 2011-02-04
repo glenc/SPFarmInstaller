@@ -5,3 +5,4 @@ $libPath = [System.IO.Path]::GetDirectoryName($myInvocation.MyCommand.Definition
 . "$libPath\serviceApplications.ps1"
 . "$libPath\topology.ps1"
 . "$libPath\util.ps1"
+. "$libPath\webApplications.ps1"

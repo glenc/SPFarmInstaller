@@ -14,78 +14,77 @@ function GetOrCreateServiceApplicationPool([string]$name, $identity) {
     return $appPool
 }
 
-function ApplyPermissionsToServiceApplication($serviceName, $permissions) {
-    ## Get ID of "Managed Metadata Service"
-    $serviceAppToSecure = Get-SPServiceApplication -Name $serviceName
+function ApplyPermissionsToServiceApplication($serviceAppToSecure, $permissions, $config) {
+    ## Get ID of "Service"
     $serviceAppIDToSecure = $serviceAppToSecure.Id
     
     ## Get security for app
     $serviceAppSecurity = Get-SPServiceApplicationSecurity $serviceAppIDToSecure
             
     ## Get the Claims Principals for each identity specified
-    foreach ($a in $permissions.Keys) {
-        $principal = New-SPClaimsPrincipal -Identity $a -IdentityType WindowsSamAccountName
-        Grant-SPObjectSecurity $serviceAppSecurity -Principal $principal -Rights $permissions.Get_Item($a)
+    foreach ($perm in $permissions.Grant) {
+        $identity = GetManagedAccountUsername $perm.account $config
+        $principal = New-SPClaimsPrincipal -Identity $identity -IdentityType WindowsSamAccountName
+        Grant-SPObjectSecurity $serviceAppSecurity -Principal $principal -Rights $perm.rights
     }
     
     ## Apply the changes to the Service application
     Set-SPServiceApplicationSecurity $serviceAppIDToSecure -objectSecurity $serviceAppSecurity
 }
 
-function ProvisionMetadataServiceApp($definition) {
-    foreach ($def in $definitions) {
-        $serviceName = $def.Get_Item("Name")
-        $appPoolAccountName = $def.Get_Item("AppPoolAccount")
-        $appPoolAccountPwd = $def.Get_Item("AppPoolAccountPwd")
-        $appPoolName = $def.Get_Item("AppPoolName")
-        $dbName = $def.Get_Item("DBName")
-        $partitioned = $def.Get_Item("Partitioned")
-        $adminAccount = $def.Get_Item("AdminAccount")
-        $permissions = $def.Get_Item("Permissions")
+function ProvisionMetadataServiceApp($config) {
+    foreach ($def in $config.ServiceApplications.ManagedMetadataApplication) {
+        debug $def
+        info "Creating Managed Metadata Service Application"
+        debug "  Name:" $def.name
+        debug "  AppPool:" $def.AppPool.name
+        debug "  DBName:" $def.DBName
         
-        info "Creating Managed Metadata Service Application '$serviceName'"
-        debug "  AppPool: '$appPoolName'"
-        debug "  DBName:  '$dbName'"
+        $partitioned = $def.Partitioned -eq "True"
         if ($partitioned) { debug "  Partitioned" }
         
         try {
-            ## Get Managed Account
-            $appPoolAccount = GetOrCreateManagedAccount $appPoolAccountName $appPoolAccountPassword
-            if ($appPoolAccount -eq $null) { throw "Managed Account $appPoolAccountName not found" }
-            
-            # Get App Pool
-            $appPool = GetOrCreateServiceApplicationPool $appPoolName $appPoolAccount
-            
             ## Create a Metadata Service Application
-            if((Get-SPServiceApplication -Name $serviceName) -eq $null) {      
+            if((Get-SPServiceApplication | ? {$_.DisplayName -eq $serviceName}) -eq $null) {
+                ## Get Managed Account
+                $appPoolAccount = GetOrCreateManagedAccount $def.AppPool.account $config
+                if ($appPoolAccount -eq $null) { throw "Managed Account not found" }
+                
+                # Get App Pool
+                $appPool = GetOrCreateServiceApplicationPool $def.AppPool.name $appPoolAccount
+            
                 info "Creating Managed Metadata Service"
                 
+                $adminAccount = GetManagedAccountUsername $def.AdminAccount $config
+                debug "  Admin Account: $adminAccount"
+                
                 ## Create Service App
-                   info "Creating Metadata Service Application..."
+                info "Creating Metadata Service Application..."
                 if ($partitioned) {
-                    $metaDataServiceApp  = New-SPMetadataServiceApplication -PartitionMode -Name $serviceName -ApplicationPool $appPool -DatabaseName $dbName -AdministratorAccount $adminAccount -FullAccessAccount $adminAccount
+                    $metaDataServiceApp  = New-SPMetadataServiceApplication -PartitionMode -Name $def.name -ApplicationPool $appPool -DatabaseName $def.DBName -AdministratorAccount $adminAccount -FullAccessAccount $adminAccount
                     if (-not $?) { throw "Failed to create Metadata Service Application" }
                 } else {
-                    $metaDataServiceApp  = New-SPMetadataServiceApplication -Name $serviceName -ApplicationPool $appPool -DatabaseName $dbName -AdministratorAccount $adminAccount -FullAccessAccount $adminAccount
+                    $metaDataServiceApp  = New-SPMetadataServiceApplication -Name $def.name -ApplicationPool $appPool -DatabaseName $def.DBName -AdministratorAccount $adminAccount -FullAccessAccount $adminAccount
                     if (-not $?) { throw "Failed to create Metadata Service Application" }
                 }
                 
 
                 ## create proxy
                 info "Creating Metadata Service Application Proxy..."
-                $metaDataServiceAppProxy  = New-SPMetadataServiceApplicationProxy -Name "$serviceName Proxy" -ServiceApplication $MetaDataServiceApp -DefaultProxyGroup
+                $metaDataServiceAppProxy  = New-SPMetadataServiceApplicationProxy -Name "$serviceName Proxy" -ServiceApplication $metaDataServiceApp -DefaultProxyGroup
                 if (-not $?) { throw "- Failed to create Metadata Service Application Proxy" }
                 
                 
                 ## Grant Rights to App
                 info "Granting rights to Metadata Service Application..."
-                ApplyPermissionsToServiceApplication $serviceName $permissions
+                ApplyPermissionsToServiceApplication $metaDataServiceApp $def.Permissions $config
                 
                 
                 ## All Done
                 info "Done creating Managed Metadata Service."
-                
-              } else { info "Managed Metadata Service already exists."}
+            } else { 
+                info "Managed Metadata Service already exists."
+            }
         } catch {
             Write-Output $_ 
         }
