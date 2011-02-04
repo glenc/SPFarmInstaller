@@ -130,12 +130,16 @@
         </ManagedMetadataApplication>
         
         <UserProfileApplication name="User Profiles">
-            <AppPool account="farm">UPS_AppPool</AppPool>
+            <AppPool name="User Profile Service App Pool" account="farm" />
+            <Partitioned>False</Partitioned>
             <ProfileDB>SP_Profiles</ProfileDB>
             <ProfileSyncDB>SP_ProfileSync</ProfileSyncDB>
             <SocialDB>SP_SocialDB</SocialDB>
             
-            <MySites />
+            <MySites>
+                <HostUrl>http://my</HostUrl>
+                <PersonalSitePath>/personal</PersonalSitePath>
+            </MySites>
             
             <Permissions>
                 <Grant account="farm" rights="Full Control" />
