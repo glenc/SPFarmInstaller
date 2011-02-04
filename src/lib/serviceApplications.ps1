@@ -69,8 +69,13 @@ function ProvisionMetadataServiceApp($config) {
 
                 ## create proxy
                 info "Creating Metadata Service Application Proxy..."
-                $metaDataServiceAppProxy  = New-SPMetadataServiceApplicationProxy -Name "$serviceName Proxy" -ServiceApplication $metaDataServiceApp -DefaultProxyGroup
-                if (-not $?) { throw "- Failed to create Metadata Service Application Proxy" }
+                if ($partitioned) {
+                    $metaDataServiceAppProxy  = New-SPMetadataServiceApplicationProxy -PartitionMode -Name "$serviceName Proxy" -ServiceApplication $metaDataServiceApp -DefaultProxyGroup
+                    if (-not $?) { throw "- Failed to create Metadata Service Application Proxy" }
+                } else {
+                    $metaDataServiceAppProxy  = New-SPMetadataServiceApplicationProxy -Name "$serviceName Proxy" -ServiceApplication $metaDataServiceApp -DefaultProxyGroup
+                    if (-not $?) { throw "- Failed to create Metadata Service Application Proxy" }
+                }
                 
                 
                 ## Grant Rights to App
