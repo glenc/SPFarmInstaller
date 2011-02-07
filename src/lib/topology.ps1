@@ -133,6 +133,16 @@ function GetAllServerNames($config) {
     return $names
 }
 
+function GetAllServerNamesForService($service, $config) {
+    $svc = $config.Topology.Service | ? {$_.name -eq $service}
+    if ($svc -eq $null) {
+        return $null
+    }
+    
+    $names = GetServerNames $svc.runningOn $config
+    return $names | Select-Object -Unique
+}
+
 function StartService([string]$service, [string]$server) {
     $tmp = $service.Split(".")
     $shortName = $tmp[$tmp.Length - 1]
