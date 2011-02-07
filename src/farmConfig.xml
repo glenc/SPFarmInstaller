@@ -170,5 +170,27 @@
             <ContentAccessAccount>Crawl Account</ContentAccessAccount>
             <SearchServiceApplicationType>Regular</SearchServiceApplicationType>
         </EnterpriseSearchApplication>
+        
+        <SecureStoreApplication name="Secure Store">
+        	<DBName>SP_SecureStore</DBName>
+        	<AppPool name="Secure Store App Pool" account="farm" />
+        	<Partitioned>False</Partitioned>
+        </SecureStoreApplication>
+        
+        <StateServiceApplication name="State Service">
+        	<DBName>SP_StateService</DBName>
+        </StateServiceApplication>
+        
+        <WebAnalyticsApplication name="Web Analytics">
+        	<AppPool name="Web Analytics" account="Farm Service Account" />
+        	<StagingDB>SP_Web_Staging</StagingDB>
+        	<ReportingDB>SP_Web_Reporting</ReportingDB>
+        	<DataRetentionPeriod>25</DataRetentionPeriod>
+        	<SamplingRate>100</SamplingRate>
+    	</WebAnalyticsApplication>
+    	
+    	<WSSUsageApplication name="WSS Usage">
+    		<DBName>WSS_Usage</DBName>
+    	</WSSUsageApplication>
     </ServiceApplications>
 </Configuration>

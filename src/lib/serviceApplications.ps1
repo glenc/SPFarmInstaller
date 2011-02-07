@@ -3,6 +3,10 @@
 # ---------------------------------------------------------------
 
 
+# ---------------------------------------------------------------
+# Managed Metadata
+# ---------------------------------------------------------------
+
 function ProvisionMetadataServiceApplications($config) {
     foreach ($def in $config.ServiceApplications.ManagedMetadataApplication) {
         $serviceName = $def.name
@@ -25,6 +29,10 @@ function ProvisionMetadataServiceApplications($config) {
         ProvisionServiceApplication $def $createCmd $proxyCmd $config
     }
 }
+
+# ---------------------------------------------------------------
+# Enterprise Search
+# ---------------------------------------------------------------
 
 function ProvisionEnterpriseSearchServiceApplications($config) {
     $apps = $config.ServiceApplications.EnterpriseSearchApplication
@@ -258,6 +266,10 @@ function GetAllSearchServers($config) {
     return $servers | Select-Object -Unique
 }
 
+# ---------------------------------------------------------------
+# User Profiles
+# ---------------------------------------------------------------
+
 function ProvisionUserProfileServiceApplications($config) {
     foreach ($def in $config.ServiceApplications.UserProfileApplication) {
         $serviceName = $def.name
@@ -291,6 +303,81 @@ function CreateMySiteHost {
     warn "not implemented"
     
 }
+
+# ---------------------------------------------------------------
+# Secure Store
+# ---------------------------------------------------------------
+
+function ProvisionSecureStoreServiceApplications($config) {
+    foreach ($def in $config.ServiceApplications.SecureStoreApplication) {
+        $serviceApp = Get-SPServiceApplication -Name $def.name -ErrorAction SilentlyContinue
+        if ($serviceApp -eq $null) {
+            info "Creating secure store application" $def.name
+            $dbName = $def.DBName
+            $createCmd = "New-SPSecureStoreServiceApplication -Sharing:`$false -DatabaseName `"$dbName`" -AuditingEnabled:`$true -AuditLogMaxSize 30"
+            if ($partitioned) { $createCmd += " -PartitionMode" }
+            
+            $proxyCmd = "New-SPSecureStoreServiceApplicationProxy -DefaultProxyGroup"
+            if ($partitioned) { $proxyCmd += " -PartitionMode" }
+            
+            ProvisionServiceApplication $def $createCmd $proxyCmd $config
+            
+            # set key
+            $proxy = Get-SPServiceApplicationProxy | where { $_.DisplayName -eq $def.name + " Proxy" }
+            Update-SPSecureStoreMasterKey -ServiceApplicationProxy $proxy.Id -Passphrase $config.Farm.Passphrase
+            Update-SPSecureStoreApplicationServerKey -ServiceApplicationProxy $proxy.Id -Passphrase $config.Farm.Passphrase
+        }
+    }
+}
+
+# ---------------------------------------------------------------
+# State Service
+# ---------------------------------------------------------------
+
+function ProvisionStateServiceApplications($config) {
+    foreach ($def in $config.ServiceApplications.StateServiceApplication) {
+        $existingApp = Get-SPStateServiceApplication -Identity $def.name -ErrorAction SilentlyContinue
+        if ($existingApp -eq $null) {
+            info "Creating state service application" $def.name
+            New-SPStateServiceDatabase -Name $def.DBName | Out-Null
+            $app = New-SPStateServiceApplication -Name $def.name -Database $def.DBName
+            Get-SPStateServiceDatabase | Initialize-SPStateServiceDatabase | Out-Null
+            
+            $proxyName = $def.name + " Proxy"
+            $app | New-SPStateServiceApplicationProxy -Name $proxyName -DefaultProxyGroup | Out-Null
+        }
+    }
+}
+
+# ---------------------------------------------------------------
+# Web Analytics Service
+# ---------------------------------------------------------------
+
+function ProvisionWebAnalyticsServiceApplications($config) {
+    foreach ($def in $config.ServiceApplications.WebAnalyticsApplication) {
+        $existingApp = Get-SPWebAnalyticsServiceApplication $def.name -ErrorAction SilentlyContinue
+        if ($existingApp -eq $null) {
+            info "Creating new web analytics application" $def.name
+            $dbServer = $config.Farm.DatabaseServer
+            $stagingDb = $def.StagingDB
+            $reportingDb = $def.ReportingDB
+            $stagingDbList = "<StagingDatabases><StagingDatabase ServerName='$dbServer' DatabaseName='$stagingDb'/></StagingDatabases>"
+            $reportingDbList ="<ReportingDatabases><ReportingDatabase ServerName='$dbServer' DatabaseName='$reportingDb'/></ReportingDatabases>"
+            $dataRetention = $def.DataRetentionPeriod
+            $samplingRate = $def.SamplingRate
+            
+            $createCmd = "New-SPWebAnalyticsServiceApplication -ReportingDataRetention $dataRetention -SamplingRate $samplingRate -ListOfReportingDatabases `"$reportingDbList`" -ListOfStagingDatabases `"$stagingDbList`""
+            
+            $proxyCmd = "New-SPWebAnalyticsServiceApplicationProxy"
+            
+            ProvisionServiceApplication $def $createCmd $proxyCmd $config
+        }
+    }
+}
+
+# ---------------------------------------------------------------
+# Utility Functions
+# ---------------------------------------------------------------
 
 function ProvisionServiceApplication($appDefinition, [string]$serviceAppCmd, [string]$proxyCmd, $config) {
     $appName = $appDefinition.name
@@ -344,6 +431,10 @@ function GetOrCreateServiceApplicationPool([string]$name, $identity) {
 }
 
 function ApplyPermissionsToServiceApplication($serviceAppToSecure, $permissions, $config) {
+    if ($permissions -eq $null) {
+        return
+    }
+
     ## Get ID of "Service"
     $serviceAppIDToSecure = $serviceAppToSecure.Id
     
