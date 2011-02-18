@@ -467,20 +467,20 @@ function ProvisionBusinessDataConnectivityApplications($config) {
 # ---------------------------------------------------------------
 
 function ProvisionAccessServicesApplications($config) {
-#    if ($config.ServiceApplications.AccessServicesApplication -eq $null) {
-#        return
-#    }
-#    
-#    foreach ($def in $config.ServiceApplications.AccessServicesApplication) {
-#        $existingApp = Get-SPAccessServiceApplication -Identity $def.name -ErrorAction SilentlyContinue
-#        if ($existingApp -eq $null) {
-#            info "Creating access services application" $def.name
-#            
-#            $createCmd = "New-SPAccessServiceApplication"
-#            
-#            ProvisionServiceApplication $def $createCmd "" $config
-#        }
-#    }
+    if ($config.ServiceApplications.AccessServicesApplication -eq $null) {
+        return
+    }
+    
+    foreach ($def in $config.ServiceApplications.AccessServicesApplication) {
+        $existingApp = Get-SPAccessServiceApplication -Identity $def.name -ErrorAction SilentlyContinue
+        if ($existingApp -eq $null) {
+            info "Creating access services application" $def.name
+            
+            $createCmd = "New-SPAccessServiceApplication"
+            
+            ProvisionServiceApplication $def $createCmd "" $config
+        }
+    }
 }
 
 # ---------------------------------------------------------------
@@ -488,21 +488,31 @@ function ProvisionAccessServicesApplications($config) {
 # ---------------------------------------------------------------
 
 function ProvisionVisioGraphicsApplications($config) {
-#    if ($config.ServiceApplications.VisioGraphicsApplication -eq $null) {
-#        return
-#    }
-#    
-#    foreach ($def in $config.ServiceApplications.VisioGraphicsApplication) {
-#        $existingApp = Get-SPVisioServiceApplication -Identity $def.name -ErrorAction SilentlyContinue
-#        if ($existingApp -eq $null) {
-#            info "Creating visio graphics application" $def.name
-#            
-#            $createCmd = "New-SPVisioServiceApplication"
-#            $proxyCmd = "New-SPVisioServiceApplicationProxy"
-#            
-#            ProvisionServiceApplication $def $createCmd $proxyCmd $config
-#        }
-#    }
+    if ($config.ServiceApplications.VisioGraphicsApplication -eq $null) {
+        return
+    }
+    
+    foreach ($def in $config.ServiceApplications.VisioGraphicsApplication) {
+        $existingApp = Get-SPServiceApplication | where {$_.DisplayName -eq $def.name}
+        if ($existingApp -eq $null) {
+            info "Creating visio graphics application" $def.name
+            
+            # Get or create app pool
+            $appPoolName = $def.AppPool.name
+            $appPoolAccount = GetOrCreateManagedAccount $def.AppPool.account $config
+            if ($appPoolAccount -eq $null) { throw "Managed account not found" }
+            
+            $appPool = GetOrCreateServiceApplicationPool $appPoolName $appPoolAccount
+            
+            debug "  creating service application"
+            $serviceApp = New-SPVisioServiceApplication -Name $def.name -ApplicationPool $appPool
+            
+            debug "  creating proxy"
+            New-SPVisioServiceApplicationProxy -Name "$($def.name) Proxy" -ServiceApplication $def.name | out-null
+            
+            ApplyPermissionsToServiceApplication $serviceApp $def.Permissions $config
+        }
+    }
 }
 
 # ---------------------------------------------------------------
