@@ -49,6 +49,9 @@ function CreateOrJoinFarm($config) {
     $build = "$($(Get-SPFarm).BuildVersion.Major).0.0.$($(Get-SPFarm).BuildVersion.Build)"
     New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Shared Tools\Web Server Extensions\14.0\' -Name Version -Value $build -ErrorAction SilentlyContinue | Out-Null
     
+    # start timer service
+    StartTimerService
+    
     return $isNewFarm
 }
 
@@ -93,4 +96,17 @@ function CreateCentralAdmin($config) {
             break
         }
     }
+}
+
+function StartTimerService() {
+	$svc = Get-Service "SPTimerV4"
+	if ($svc.Status -ne "Running") {
+		info "Starting timer service"
+		Start-Service "SPTimerV4"
+		while ($svc.Status -ne "Running") {
+			show-progress
+			sleep 1
+			$svc = Get-Service "SPTimerV4"
+		}
+	}
 }

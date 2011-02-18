@@ -38,3 +38,12 @@ function GetManagedAccountUsername([string]$accountName, $config) {
         return $act.username
     }
 }
+
+function GetManagedAccountPassword([string]$accountName, $config) {
+	$act = $config.ManagedAccounts.Account | Where-Object {$_.name -eq $accountName}
+    if ($act -eq $null) {
+        return ""
+    } else {
+        return $act.password
+    }
+}

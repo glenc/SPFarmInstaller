@@ -8,6 +8,10 @@
 # ---------------------------------------------------------------
 
 function ProvisionMetadataServiceApplications($config) {
+    if ($config.ServiceApplications.ManagedMetadataApplication -eq $null) {
+        return
+    }
+    
     foreach ($def in $config.ServiceApplications.ManagedMetadataApplication) {
         $serviceName = $def.name
         $dbName = $def.DBName
@@ -46,6 +50,10 @@ function ProvisionEnterpriseSearchServiceApplications($config) {
     ProvisionEnterpriseSearchService $config
     
     # next provision each application
+    if ($apps -eq $null) {
+        return
+    }
+    
     foreach ($def in $apps) {
         $serviceName = $def.name
         $partitioned = $def.Partitioned -eq "True"
@@ -170,7 +178,7 @@ function ConfigureCrawlTopology($searchApp, $definition, $config) {
     $storeDbName = $definition.DBName + "_CrawlStore"
     
     # get crawl servers
-    $crawlServers = GetAllServerNamesForService "EnterpriseSearchIndexer" $config
+    $crawlServers = GetAllServerNamesForService "EnterpriseSearchCrawl" $config
     foreach ($server in $crawlServers) {
         $svc = Get-SPEnterpriseSearchServiceInstance | ? {$_.Server.Name -eq $server}
         $crawlComponent = $crawlTopology.CrawlComponents | where { $_.ServerName -eq $server }
@@ -259,7 +267,7 @@ function ActivateTopology($searchApp, $config) {
 
 function GetAllSearchServers($config) {
     $servers = @()
-    $servers += GetAllServerNamesForService "EnterpriseSearchIndexer" $config
+    $servers += GetAllServerNamesForService "EnterpriseSearchCrawl" $config
     $servers += GetAllServerNamesForService "EnterpriseSearchQuery" $config
     $servers += GetAllServerNamesForService "EnterpriseSearchAdminComponent" $config
     
@@ -271,6 +279,10 @@ function GetAllSearchServers($config) {
 # ---------------------------------------------------------------
 
 function ProvisionUserProfileServiceApplications($config) {
+    if ($config.ServiceApplications.UserProfileApplication -eq $null) {
+        return
+    }
+    
     foreach ($def in $config.ServiceApplications.UserProfileApplication) {
         $serviceName = $def.name
         $profileDb = $def.ProfileDB
@@ -291,17 +303,35 @@ function ProvisionUserProfileServiceApplications($config) {
         $proxyCmd = "New-SPProfileServiceApplicationProxy"
         if ($partitioned) { $proxyCmd += " -PartitionMode" }
         
-        CreateMySiteHost
-        
         ProvisionServiceApplication $def $createCmd $proxyCmd $config
+        $svcApp = Get-SPServiceApplication | ? {$_.DisplayName -eq $serviceName}
         
         # start sync service
+        $syncServer = GetAllServerNamesForService "UserProfileSyncService" $config
+        if ($syncServer.Count -gt 1) {
+            $syncServer = $syncServer[0]
+        }
+        
+        $farmAcct = GetManagedAccountUsername $config.Farm.FarmSvcAccount $config
+        $farmAcctPwd = GetManagedAccountPassword $config.Farm.FarmSvcAccount $config
+        
+        $syncService = GetServiceInstance "Microsoft.Office.Server.Administration.ProfileSynchronizationServiceInstance" $syncServer
+        
+        debug "  starting user profile sync service on server" $syncServer
+        
+        $svcApp.SetSynchronizationMachine($syncServer, [Guid]$syncService.Id, $farmAcct, $farmAcctPwd)
+        [int]$iterations = 0
+        while ($syncService.Status -ne "Online") {
+            if ($iterations -gt 120) {
+                warn "Could not start user profile synchronization service.  Please configure manually"
+                break
+            }
+            show-progress
+            sleep 1
+            [int]$iterations = $iterations + 1
+            $syncService = GetServiceInstance "Microsoft.Office.Server.Administration.ProfileSynchronizationServiceInstance" $syncServer
+        }
     }
-}
-
-function CreateMySiteHost {
-    warn "not implemented"
-    
 }
 
 # ---------------------------------------------------------------
@@ -309,6 +339,10 @@ function CreateMySiteHost {
 # ---------------------------------------------------------------
 
 function ProvisionSecureStoreServiceApplications($config) {
+    if ($config.ServiceApplications.SecureStoreApplication -eq $null) {
+        return
+    }
+    
     foreach ($def in $config.ServiceApplications.SecureStoreApplication) {
         $serviceApp = Get-SPServiceApplication -Name $def.name -ErrorAction SilentlyContinue
         if ($serviceApp -eq $null) {
@@ -335,6 +369,10 @@ function ProvisionSecureStoreServiceApplications($config) {
 # ---------------------------------------------------------------
 
 function ProvisionStateServiceApplications($config) {
+    if ($config.ServiceApplications.StateServiceApplication -eq $null) {
+        return
+    }
+    
     foreach ($def in $config.ServiceApplications.StateServiceApplication) {
         $existingApp = Get-SPStateServiceApplication -Identity $def.name -ErrorAction SilentlyContinue
         if ($existingApp -eq $null) {
@@ -354,6 +392,10 @@ function ProvisionStateServiceApplications($config) {
 # ---------------------------------------------------------------
 
 function ProvisionWebAnalyticsServiceApplications($config) {
+    if ($config.ServiceApplications.WebAnalyticsApplication -eq $null) {
+        return
+    }
+    
     foreach ($def in $config.ServiceApplications.WebAnalyticsApplication) {
         $existingApp = Get-SPWebAnalyticsServiceApplication $def.name -ErrorAction SilentlyContinue
         if ($existingApp -eq $null) {
@@ -376,6 +418,94 @@ function ProvisionWebAnalyticsServiceApplications($config) {
 }
 
 # ---------------------------------------------------------------
+# WSS Usage
+# ---------------------------------------------------------------
+
+function ProvisionWSSUsageServiceApplications($config) {
+    if ($config.ServiceApplications.WSSUsageApplication -eq $null) {
+        return
+    }
+    
+    foreach ($def in $config.ServiceApplications.WSSUsageApplication) {
+        $existingApp = Get-SPUsageApplication
+        if ($existingApp -eq $null) {
+            info "Creating new WSS USage App"
+            New-SPUsageApplication -Name $def.name -DatabaseName $def.DBName | Out-Null
+            $proxy = Get-SPServiceApplicationProxy | where {$_.DisplayName -eq $def.name}
+            $proxy.Provision()
+        }
+    }
+}
+
+# ---------------------------------------------------------------
+# BDC
+# ---------------------------------------------------------------
+
+function ProvisionBusinessDataConnectivityApplications($config) {
+    if ($config.ServiceApplications.BusinessDataConnectivityApplication -eq $null) {
+        return
+    }
+    
+    foreach ($def in $config.ServiceApplications.BusinessDataConnectivityApplication) {
+        $existingApp = Get-SPServiceApplication | where {$_.DisplayName -eq $def.name}
+        if ($existingApp -eq $null) {
+            info "Creating business data application" $def.name
+            
+            $dbName = $def.DBName
+            $partitioned = $def.Partitioned -eq "True"
+            
+            $createCmd = "New-SPBusinessDataCatalogServiceApplication -DatabaseName `"$dbName`""
+            if ($partitioned) { $createCmd += " -PartitionMode" }
+            
+            ProvisionServiceApplication $def $createCmd "" $config
+        }
+    }
+}
+
+# ---------------------------------------------------------------
+# Access Services
+# ---------------------------------------------------------------
+
+function ProvisionAccessServicesApplications($config) {
+#    if ($config.ServiceApplications.AccessServicesApplication -eq $null) {
+#        return
+#    }
+#    
+#    foreach ($def in $config.ServiceApplications.AccessServicesApplication) {
+#        $existingApp = Get-SPAccessServiceApplication -Identity $def.name -ErrorAction SilentlyContinue
+#        if ($existingApp -eq $null) {
+#            info "Creating access services application" $def.name
+#            
+#            $createCmd = "New-SPAccessServiceApplication"
+#            
+#            ProvisionServiceApplication $def $createCmd "" $config
+#        }
+#    }
+}
+
+# ---------------------------------------------------------------
+# Visio Graphics Services
+# ---------------------------------------------------------------
+
+function ProvisionVisioGraphicsApplications($config) {
+#    if ($config.ServiceApplications.VisioGraphicsApplication -eq $null) {
+#        return
+#    }
+#    
+#    foreach ($def in $config.ServiceApplications.VisioGraphicsApplication) {
+#        $existingApp = Get-SPVisioServiceApplication -Identity $def.name -ErrorAction SilentlyContinue
+#        if ($existingApp -eq $null) {
+#            info "Creating visio graphics application" $def.name
+#            
+#            $createCmd = "New-SPVisioServiceApplication"
+#            $proxyCmd = "New-SPVisioServiceApplicationProxy"
+#            
+#            ProvisionServiceApplication $def $createCmd $proxyCmd $config
+#        }
+#    }
+}
+
+# ---------------------------------------------------------------
 # Utility Functions
 # ---------------------------------------------------------------
 
@@ -393,17 +523,19 @@ function ProvisionServiceApplication($appDefinition, [string]$serviceAppCmd, [st
             
             # create actual service app
             debug "  Creating service application..."
-            $serviceAppCmd += " -Name `"$appName`" -ApplicationPool `$appPool"
+            $serviceAppCmd += " -Name `$appName -ApplicationPool `$appPool"
             $createAppCmd = $ExecutionContext.InvokeCommand.NewScriptBlock($serviceAppCmd)
             $serviceApp = Invoke-Command -ScriptBlock $createAppCmd
             if (-not $?) { throw "- Failed to create service application" }
             
             # create proxy
-            debug "  Creating application proxy..."
-            $proxyCmd += " -Name `"$appName Proxy`" -ServiceApplication `$serviceApp"
-            $createProxyCmd = $ExecutionContext.InvokeCommand.NewScriptBlock($proxyCmd)
-            Invoke-Command -ScriptBlock $createProxyCmd | Out-Null
-            if (-not $?) { throw "- Failed to create service application proxy" }
+            if ($proxyCmd -ne "") {
+                debug "  Creating application proxy..."
+                $proxyCmd += " -Name `"$appName Proxy`" -ServiceApplication `$serviceApp"
+                $createProxyCmd = $ExecutionContext.InvokeCommand.NewScriptBlock($proxyCmd)
+                Invoke-Command -ScriptBlock $createProxyCmd | Out-Null
+                if (-not $?) { throw "- Failed to create service application proxy" }
+            }
             
             # assign permissions
             ApplyPermissionsToServiceApplication $serviceApp $appDefinition.Permissions $config
@@ -411,7 +543,7 @@ function ProvisionServiceApplication($appDefinition, [string]$serviceAppCmd, [st
             debug "  done"
             
         } else {
-            warn "Service application already exists"
+            debug "Service application already exists"
         }
     } catch {
         Write-Output $_
