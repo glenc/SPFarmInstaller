@@ -27,10 +27,10 @@ function CreateWebApplication($def, $config) {
         if ($parts.Count -eq 2) {
             $port = $parts[1]
         } else {
-        	if ($useSSL) {
-        		$port = 443
-        	} else {
-            	$port = 80
+            if ($useSSL) {
+                $port = 443
+            } else {
+                $port = 80
             }
         }
         
@@ -72,7 +72,7 @@ function CreateWebApplication($def, $config) {
         
         # assign cert
         if ($useSSL) {
-        	AssignCert $hostHeader $port $config
+            AssignCert $hostHeader $port $config
         }
         
         # set up managed paths
@@ -124,8 +124,8 @@ function CreateSiteCollections($def, $config) {
 }
 
 function AssignCert($SSLHostHeader, $SSLPort, $config){
-	# Load IIS WebAdministration Snapin/Module
-	# Inspired by http://stackoverflow.com/questions/1924217/powershell-load-webadministration-in-ps1-script-on-both-iis-7-and-iis-7-5
+    # Load IIS WebAdministration Snapin/Module
+    # Inspired by http://stackoverflow.com/questions/1924217/powershell-load-webadministration-in-ps1-script-on-both-iis-7-and-iis-7-5
     $QueryOS = Gwmi Win32_OperatingSystem
     $QueryOS = $QueryOS.Version 
     $OS = ""
@@ -134,66 +134,66 @@ function AssignCert($SSLHostHeader, $SSLPort, $config){
     
     $bits = $config.Installation.PathToBits
     
-	try {
-		if ($OS -eq "Win2008") {
-			if (!(Get-PSSnapin WebAdministration -ErrorAction SilentlyContinue)) {	 
-  				if (!(Test-Path $env:ProgramFiles\IIS\PowerShellSnapin\IIsConsole.psc1)) {
-					Start-Process -Wait -NoNewWindow -FilePath msiexec.exe -ArgumentList "/i `"$bits\PrerequisiteInstallerFiles\iis7psprov_x64.msi`" /passive /promptrestart"
-				}
-				Add-PSSnapin WebAdministration
-			}
-		}
-		else { 
-  			Import-Module WebAdministration
-		}
-	} catch {
-		info "  Could not load IIS Administration module."
-	}
-	debug "  Assigning certificate to site `"https://$SSLHostHeader`:$SSLPort`""
-	debug "  Looking for existing `"$SSLHostHeader`" certificate to use..."
-	$Cert = Get-ChildItem cert:\LocalMachine\My | ? {$_.Subject -eq "CN=$SSLHostHeader"}
-	if (!$Cert) {
-		debug "  None found."
-		$MakeCert = "$env:ProgramFiles\Microsoft Office Servers\14.0\Tools\makecert.exe"
-		if (Test-Path "$MakeCert") {
-			debug "  Creating new self-signed certificate..."
-			Start-Process -NoNewWindow -Wait -FilePath "$MakeCert" -ArgumentList "-r -pe -n `"CN=$SSLHostHeader`" -eku 1.3.6.1.5.5.7.3.1 -ss My -sr localMachine -sky exchange -sp `"Microsoft RSA SChannel Cryptographic Provider`" -sy 12"
-			$Cert = Get-ChildItem cert:\LocalMachine\My | ? {$_.Subject -eq "CN=$SSLHostHeader"}
-			$CertSubject = $Cert.Subject
-		} else {
-			debug "  `"$MakeCert`" not found."
-			debug "  Looking for any machine-named certificates we can use..."
-			# Select the first certificate with the most recent valid date
-			$Cert = Get-ChildItem cert:\LocalMachine\My | ? {$_.Subject -like "*$env:COMPUTERNAME"} | Sort-Object NotBefore -Desc | Select-Object -First 1
-			if (!$Cert) {
-				warn "  No cert found, skipping certificate creation."
-			} else {
-				$CertSubject = $Cert.Subject
-			}
-		}
-	} else {
-		$CertSubject = $Cert.Subject
-		debug "  Certificate `"$CertSubject`" found."
-	}
-	if ($Cert) {
-		# Export our certificate to a file, then import it to the Trusted Root Certification Authorites store so we don't get nasty browser warnings
-		# This will actually only work if the Subject and the host part of the URL are the same
-		# Borrowed from https://www.orcsweb.com/blog/james/powershell-ing-on-windows-server-how-to-import-certificates-using-powershell/
-		debug "  Exporting `"$CertSubject`" to `"$SSLHostHeader.cer`"..."
-		$Cert.Export("Cert") | Set-Content "$env:TEMP\$SSLHostHeader.cer" -Encoding byte
-		$Pfx = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
-		debug "  Importing `"$SSLHostHeader.cer`" to Local Machine\Root..."
-		$Pfx.Import("$env:TEMP\$SSLHostHeader.cer")
-		$Store = New-Object System.Security.Cryptography.X509Certificates.X509Store("Root","LocalMachine")
-		$Store.Open("MaxAllowed")
-		$Store.Add($Pfx)
-		$Store.Close()
-		debug "  Assigning certificate `"$CertSubject`" to SSL-enabled site..."
-		#Set-Location IIS:\SslBindings -ErrorAction Inquire
-		$Cert | New-Item IIS:\SslBindings\0.0.0.0!$SSLPort -ErrorAction Inquire | Out-Null
-		debug "  Certificate has been assigned to site `"https://$SSLHostHeader`:$SSLPort`""
-	} else {
-		warn "No certificates were found, and none could be created."
-	}
-	$Cert = $null
+    try {
+        if ($OS -eq "Win2008") {
+            if (!(Get-PSSnapin WebAdministration -ErrorAction SilentlyContinue)) {     
+                  if (!(Test-Path $env:ProgramFiles\IIS\PowerShellSnapin\IIsConsole.psc1)) {
+                    Start-Process -Wait -NoNewWindow -FilePath msiexec.exe -ArgumentList "/i `"$bits\PrerequisiteInstallerFiles\iis7psprov_x64.msi`" /passive /promptrestart"
+                }
+                Add-PSSnapin WebAdministration
+            }
+        }
+        else { 
+              Import-Module WebAdministration
+        }
+    } catch {
+        info "  Could not load IIS Administration module."
+    }
+    debug "  Assigning certificate to site `"https://$SSLHostHeader`:$SSLPort`""
+    debug "  Looking for existing `"$SSLHostHeader`" certificate to use..."
+    $Cert = Get-ChildItem cert:\LocalMachine\My | ? {$_.Subject -eq "CN=$SSLHostHeader"}
+    if (!$Cert) {
+        debug "  None found."
+        $MakeCert = "$env:ProgramFiles\Microsoft Office Servers\14.0\Tools\makecert.exe"
+        if (Test-Path "$MakeCert") {
+            debug "  Creating new self-signed certificate..."
+            Start-Process -NoNewWindow -Wait -FilePath "$MakeCert" -ArgumentList "-r -pe -n `"CN=$SSLHostHeader`" -eku 1.3.6.1.5.5.7.3.1 -ss My -sr localMachine -sky exchange -sp `"Microsoft RSA SChannel Cryptographic Provider`" -sy 12"
+            $Cert = Get-ChildItem cert:\LocalMachine\My | ? {$_.Subject -eq "CN=$SSLHostHeader"}
+            $CertSubject = $Cert.Subject
+        } else {
+            debug "  `"$MakeCert`" not found."
+            debug "  Looking for any machine-named certificates we can use..."
+            # Select the first certificate with the most recent valid date
+            $Cert = Get-ChildItem cert:\LocalMachine\My | ? {$_.Subject -like "*$env:COMPUTERNAME"} | Sort-Object NotBefore -Desc | Select-Object -First 1
+            if (!$Cert) {
+                warn "  No cert found, skipping certificate creation."
+            } else {
+                $CertSubject = $Cert.Subject
+            }
+        }
+    } else {
+        $CertSubject = $Cert.Subject
+        debug "  Certificate `"$CertSubject`" found."
+    }
+    if ($Cert) {
+        # Export our certificate to a file, then import it to the Trusted Root Certification Authorites store so we don't get nasty browser warnings
+        # This will actually only work if the Subject and the host part of the URL are the same
+        # Borrowed from https://www.orcsweb.com/blog/james/powershell-ing-on-windows-server-how-to-import-certificates-using-powershell/
+        debug "  Exporting `"$CertSubject`" to `"$SSLHostHeader.cer`"..."
+        $Cert.Export("Cert") | Set-Content "$env:TEMP\$SSLHostHeader.cer" -Encoding byte
+        $Pfx = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
+        debug "  Importing `"$SSLHostHeader.cer`" to Local Machine\Root..."
+        $Pfx.Import("$env:TEMP\$SSLHostHeader.cer")
+        $Store = New-Object System.Security.Cryptography.X509Certificates.X509Store("Root","LocalMachine")
+        $Store.Open("MaxAllowed")
+        $Store.Add($Pfx)
+        $Store.Close()
+        debug "  Assigning certificate `"$CertSubject`" to SSL-enabled site..."
+        #Set-Location IIS:\SslBindings -ErrorAction Inquire
+        $Cert | New-Item IIS:\SslBindings\0.0.0.0!$SSLPort -ErrorAction Inquire | Out-Null
+        debug "  Certificate has been assigned to site `"https://$SSLHostHeader`:$SSLPort`""
+    } else {
+        warn "No certificates were found, and none could be created."
+    }
+    $Cert = $null
 }

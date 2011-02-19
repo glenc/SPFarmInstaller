@@ -28,16 +28,16 @@ To create the farm, follow these steps:
 
 1. On your central admin server, run the following PowerShell Command:
 
-	PS> .\02-create-or-join-farm.ps1 .\farmConfig.xml
+	`PS> .\02-create-or-join-farm.ps1 .\farmConfig.xml`
 
 2. Once the farm has been created, connect to each of the other servers in your farm (ONE AT A TIME) and execute the following PowerShell Command:
 
-	PS> .\02-create-or-join-farm.ps1 .\farmConfig.xml
+	`PS> .\02-create-or-join-farm.ps1 .\farmConfig.xml`
 
 ### STEP 4: Configure the Farm ###
 The last step is to configure the farm including all service applications, web applications, etc.
 
 1. Connect to your central admin server and run the following PowerShell command:
 
-	PS > .\03-configure-farm.ps1 .\farmConfig.xml
+	`PS > .\03-configure-farm.ps1 .\farmConfig.xml`
 
