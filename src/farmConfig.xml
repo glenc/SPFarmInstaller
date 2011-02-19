@@ -7,7 +7,16 @@
     </Installation>
     <ManagedAccounts>
         <Account name="Farm Service Account" username="DOMAIN\account" password="***" />
+        <Account name="Portal App Pool Account" username="DOMAIN\account" password="***" />
+        <Account name="General Services App Pool Account" username="DOMAIN\account" password="***" />
+        <Account name="Search Service Account" username="DOMAIN\account" password="***" />
+        <Account name="Search Admin Service Account" username="DOMAIN\account" password="***" />
         <Account name="Default Content Access Account" username="DOMAIN\account" password="***" />
+        <Account name="Managed Metadata App Pool Account" username="DOMAIN\account" password="***" />
+        <Account name="Web Analytics Account" username="DOMAIN\account" password="***" />
+        <Account name="User Profiles App Pool Account" username="DOMAIN\account" password="***" />
+		<Account name="Business Data App Pool Account" username="DOMAIN\account" password="***" />
+		<Account name="Secure Store App Pool Account" username="DOMAIN\account" password="***" />
     </ManagedAccounts>
     <Farm>
         <FarmSvcAccount>Farm Service Account</FarmSvcAccount>
@@ -29,13 +38,13 @@
             <Group name="WFE Servers">
                 <Server name="localhost"/>
             </Group>
+            <Group name="Central Admin Server">
+            	<Server name="localhost" />
+            </Group>
             <Group name="App Servers">
                 <Server name="localhost"/>
             </Group>
-            <Group name="Search Query Servers">
-                <Server name="localhost"/>
-            </Group>
-            <Group name="Search Index Servers">
+            <Group name="Search Servers">
                 <Server name="localhost"/>
             </Group>
         </ServerGroups>
@@ -73,19 +82,19 @@
         
         <!-- User Profiles -->
         <Service name="UserProfileService"               runningOn="App Servers" />
-        <Service name="UserProfileSyncService"           runningOn="App Servers" />
+        <Service name="UserProfileSyncService"           runningOn="Central Admin Server" />
         
         <!-- Enterprise Search -->
-        <Service name="EnterpriseSearchIndexer"          runningOn="Search Index Servers" />
-        <Service name="EnterpriseSearchQuery"            runningOn="Search Query Servers" />
-        <Service name="EnterpriseSearchAdminComponent"   runningOn="App Servers" />
-        <Service name="SearchQueryAndSiteSettings"       runningOn="WFE Servers, App Servers" />
+        <Service name="EnterpriseSearchCrawl"            runningOn="Search Servers" />
+        <Service name="EnterpriseSearchQuery"            runningOn="Search Servers" />
+        <Service name="EnterpriseSearchAdminComponent"   runningOn="Central Admin Server" />
+        <Service name="SearchQueryAndSiteSettings"       runningOn="Search Servers" />
         
         <!-- Office Services -->
-        <Service name="AccessService"                    runningOn="none" />
-        <Service name="ExcelCalculationServices"         runningOn="none" />
+        <Service name="AccessService"                    runningOn="App Servers" />
+        <Service name="ExcelCalculationServices"         runningOn="App Servers" />
         <Service name="PerformancePoint"                 runningOn="none" />
-        <Service name="VisioGraphics"                    runningOn="none" />
+        <Service name="VisioGraphics"                    runningOn="App Servers" />
         <Service name="WordAutomation"                   runningOn="none" />
         
         <!-- Document Conversions -->
@@ -101,8 +110,8 @@
         <Service name="SubscriptionSettings"             runningOn="none" />
         <Service name="SandboxedCode"                    runningOn="App Servers" />
         <Service name="IncomingEmail"                    runningOn="none" />
-        <Service name="WorkflowTimerService"             runningOn="none" />
-        <Service name="ClaimsToWindowsTokenService"      runningOn="none" />
+        <Service name="WorkflowTimerService"             runningOn="App Servers" />
+        <Service name="ClaimsToWindowsTokenService"      runningOn="App Servers" />
         
         <!-- Lotus Notes Connector -->
         <Service name="LotusNotesConnector"              runningOn="none" />
@@ -115,36 +124,62 @@
         
     </Topology>
     <WebApplications>
-        <WebApplication name="Internal Portals">
-            <AppPool account="Farm Service Account">General Services</AppPool>
+        <WebApplication name="Portal">
+            <AppPool name="Portal App Pool" account="Portal App Pool Account" />
+            <Url>http://sharepoint.mycompany.com</Url>
+            <Authentication mode="Classic" method="NTLM" allowAnonymous="false" />
+            <ContentDatabase>SP_Portal_Content</ContentDatabase>
+            <ManagedPaths>
+                <ManagedPath path="sites" type="Wildcard Inclusion" />
+                <ManagedPath path="mysite" type="Explicit Inclusion" />
+                <ManagedPath path="personal" type="Wildcard Inclusion" />
+            </ManagedPaths>
+            <SiteCollections>
+            	<SiteCollection url="http://sharepoint.mycompany.com/mysite" 
+                                owner="DOMAIN\account" 
+                                name="My Site" 
+                                description="My Site Host" 
+                                template="SPSMSITEHOST#0" 
+                                lcid="1033" />
+            </SiteCollections>
         </WebApplication>
     </WebApplications>
     <ServiceApplications>
-        <ManagedMetadataApplication name="Managed Metadata">
-            <DBName>MMS_DB</DBName>
-            <AppPool name="Managed Metadata App Pool" account="Farm Service Account" />
+    	
+    	<StateServiceApplication name="State Service">
+        	<DBName>SP_State</DBName>
+        </StateServiceApplication>
+        
+        <WSSUsageApplication name="WSS Usage">
+        	<DBName>SP_Usage</DBName>
+        </WSSUsageApplication>
+        
+    	<ManagedMetadataApplication name="Managed Metadata">
+            <DBName>SP_ManagedMetadata</DBName>
+            <AppPool name="Managed Metadata App Pool" account="Managed Metadata App Pool Account" />
             <Partitioned>False</Partitioned>
-            <AdminAccount>Farm Service Account</AdminAccount>
+            <AdminAccount>Managed Metadata App Pool Account</AdminAccount>
             <Permissions>
                 <Grant account="Farm Service Account" rights="Full Access to Term Store" />
+                <Grant account="Portal App Pool Account" rights="Full Access to Term Store" />
+                <Grant account="User Profiles App Pool Account" rights="Full Access to Term Store" />
             </Permissions>
         </ManagedMetadataApplication>
         
         <UserProfileApplication name="User Profiles">
-            <AppPool name="User Profile Service App Pool" account="farm" />
+            <AppPool name="User Profiles App Pool" account="User Profiles App Pool Account" />
             <Partitioned>False</Partitioned>
-            <ProfileDB>SP_Profiles</ProfileDB>
-            <ProfileSyncDB>SP_ProfileSync</ProfileSyncDB>
-            <SocialDB>SP_SocialDB</SocialDB>
+            <ProfileDB>SP_UserProfiles</ProfileDB>
+            <ProfileSyncDB>SP_UserProfilesSync</ProfileSyncDB>
+            <SocialDB>SP_SocialTagging</SocialDB>
             
             <MySites>
-                <HostUrl>http://my</HostUrl>
-                <PersonalSitePath>/personal</PersonalSitePath>
+                <HostUrl>http://sharepoint.mycompany.com/mysite</HostUrl>
+                <PersonalSitePath>personal</PersonalSitePath>
             </MySites>
             
             <Permissions>
-                <Grant account="farm" rights="Full Control" />
-                <Grant account="asdf" rights="Retrieve People Data for Search Crawlers" />
+                <Grant account="Farm Service Account" rights="Full Control" />
             </Permissions>
         </UserProfileApplication>
         
@@ -156,41 +191,48 @@
             <IgnoreSSLWarnings>False</IgnoreSSLWarnings>
             <InternetIdentity>Mozilla/4.0 (compatible; MSIE 4.01; Windows NT; MS Search 6.0 Robot)</InternetIdentity>
             <PerformanceLevel>PartlyReduced</PerformanceLevel>
-            <SearchServiceAccount>Farm Service Account</SearchServiceAccount>
+            <SearchServiceAccount>Search Service Account</SearchServiceAccount>
             <IndexLocation>C:\Program Files\Microsoft Office Servers\14.0\Data\Office Server\Applications</IndexLocation>
             <ShareName>SearchShare</ShareName>
         </EnterpriseSearchService>
         
         <EnterpriseSearchApplication name="Enterprise Search">
-            <DBName>SearchDB</DBName>
-            <AppPool name="Search App Pool" account="Farm Service Account" />
-            <AdminAppPool name="Search Admin App Pool" account="Farm Service Account" />
+            <DBName>SP_Search</DBName>
+            <AppPool name="Search App Pool" account="Search Service Account" />
+            <AdminAppPool name="Search Admin App Pool" account="Search Admin Service Account" />
             <Partitioned>False</Partitioned>
             <Partitions>1</Partitions>
-            <ContentAccessAccount>Crawl Account</ContentAccessAccount>
+            <ContentAccessAccount>Default Content Access Account</ContentAccessAccount>
             <SearchServiceApplicationType>Regular</SearchServiceApplicationType>
         </EnterpriseSearchApplication>
         
-        <SecureStoreApplication name="Secure Store">
-        	<DBName>SP_SecureStore</DBName>
-        	<AppPool name="Secure Store App Pool" account="farm" />
-        	<Partitioned>False</Partitioned>
-        </SecureStoreApplication>
-        
-        <StateServiceApplication name="State Service">
-        	<DBName>SP_StateService</DBName>
-        </StateServiceApplication>
-        
-        <WebAnalyticsApplication name="Web Analytics">
-        	<AppPool name="Web Analytics" account="Farm Service Account" />
-        	<StagingDB>SP_Web_Staging</StagingDB>
-        	<ReportingDB>SP_Web_Reporting</ReportingDB>
+    	<WebAnalyticsApplication name="Web Analytics">
+        	<AppPool name="Web Analytics App Pool" account="Web Analytics Account" />
+        	<StagingDB>SP_WebAnalyticsStaging</StagingDB>
+        	<ReportingDB>SP_WebAnalyticsReporting</ReportingDB>
         	<DataRetentionPeriod>25</DataRetentionPeriod>
         	<SamplingRate>100</SamplingRate>
     	</WebAnalyticsApplication>
-    	
-    	<WSSUsageApplication name="WSS Usage">
-    		<DBName>WSS_Usage</DBName>
-    	</WSSUsageApplication>
+
+        <BusinessDataConnectivityApplication name="Business Data">
+            <AppPool name="Business Data App Pool" account="Business Data App Pool Account"/>
+            <DBName>SP_BDC</DBName>
+            <Partitioned>False</Partitioned>
+        </BusinessDataConnectivityApplication>
+        
+        <AccessServicesApplication name="Access Services">
+            <AppPool name="General Services App Pool" account="General Services App Pool Account" />
+        </AccessServicesApplication>
+        
+        <VisioGraphicsApplication name="Visio Graphics">
+            <AppPool name="General Services App Pool" account="General Services App Pool Account" />
+        </VisioGraphicsApplication>
+        
+        <SecureStoreApplication name="Secure Store">
+        	<DBName>SP_SecureStore</DBName>
+        	<AppPool name="Secure Store App Pool" account="Secure Store App Pool Account" />
+        	<Partitioned>False</Partitioned>
+        </SecureStoreApplication>
+        
     </ServiceApplications>
 </Configuration>
