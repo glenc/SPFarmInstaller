@@ -19,7 +19,7 @@ Connect to each server in your farm and perform the following steps:
 1. Start a PowerShell console (run as administrator)
 2. Execute the following commands:
 
-	`PS> Set-ExecutionPolicy RemoteSigned
+	`PS> Set-ExecutionPolicy RemoteSigned  
 	PS> .\01-install-bits.ps1 .\farmConfig.xml`
 
 
