@@ -29,7 +29,6 @@ function ConfigureBulkServices($config) {
         "SubscriptionSettings" = "Microsoft.SharePoint.SPSubscriptionSettingsServiceInstance";
         "SandboxedCode" = "Microsoft.SharePoint.Administration.SPUserCodeServiceInstance";
         "ManagedMetadata" = "Microsoft.SharePoint.Taxonomy.MetadataWebServiceInstance";
-        "UserProfileService" = "Microsoft.Office.Server.Administration.UserProfileServiceInstance";
         "WebAnalyticsWebService" = "Microsoft.Office.Server.WebAnalytics.Administration.WebAnalyticsWebServiceInstance";
         "WebAnalyticsDataProcessing" = "Microsoft.Office.Server.WebAnalytics.Administration.WebAnalyticsServiceInstance";
         "IncomingEmail" = "Microsoft.SharePoint.Administration.SPIncomingEmailServiceInstance";
@@ -40,6 +39,7 @@ function ConfigureBulkServices($config) {
         # these services cannot be provisined here because they require configuration
         #"DocumentConversionsLauncher" = "Microsoft.Office.Server.Conversions.LauncherServiceInstance";
         #"UserProfileSyncService" = "Microsoft.Office.Server.Administration.ProfileSynchronizationServiceInstance";
+        #"UserProfileService" = "Microsoft.Office.Server.Administration.UserProfileServiceInstance";
         #"WebApplication" = "Microsoft.SharePoint.Administration.SPWebServiceInstance";
         #"LotusNotesConnector" = "Microsoft.Office.Server.Search.Administration.NotesWebServiceInstance";
         

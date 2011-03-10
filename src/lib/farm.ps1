@@ -69,7 +69,7 @@ function CreateNewFarm($config) {
 }
 
 function CreateCentralAdmin($config) {
-	info "Creating SharePoint Central Administratino Site"
+    info "Creating SharePoint Central Administratino Site"
     $port = $config.Farm.CentralAdminPort
     
     try {
@@ -99,14 +99,27 @@ function CreateCentralAdmin($config) {
 }
 
 function StartTimerService() {
-	$svc = Get-Service "SPTimerV4"
-	if ($svc.Status -ne "Running") {
-		info "Starting timer service"
-		Start-Service "SPTimerV4"
-		while ($svc.Status -ne "Running") {
-			show-progress
-			sleep 1
-			$svc = Get-Service "SPTimerV4"
-		}
-	}
+    $svc = Get-Service "SPTimerV4"
+    if ($svc.Status -ne "Running") {
+        info "Starting timer service"
+        Start-Service "SPTimerV4"
+        while ($svc.Status -ne "Running") {
+            show-progress
+            sleep 1
+            $svc = Get-Service "SPTimerV4"
+        }
+    }
+}
+
+function AddFarmAccountToLocalAdminGroup($config) {
+    $farmAcct = GetManagedAccountUsername $config.Farm.FarmSvcAccount $config
+    
+    $farmAcctDomain,$farmAcctUser = $farmAcct -Split "\\"
+    
+    try {
+        ([ADSI]"WinNT://$env:COMPUTERNAME/Administrators,group").Add("WinNT://$farmAcctDomain/$farmAcctUser")
+        If (-not $?) {throw}
+    } catch {
+        info "  $farmAcct is already an Administrator."
+    }
 }

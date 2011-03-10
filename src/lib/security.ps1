@@ -40,7 +40,7 @@ function GetManagedAccountUsername([string]$accountName, $config) {
 }
 
 function GetManagedAccountPassword([string]$accountName, $config) {
-	$act = $config.ManagedAccounts.Account | Where-Object {$_.name -eq $accountName}
+    $act = $config.ManagedAccounts.Account | Where-Object {$_.name -eq $accountName}
     if ($act -eq $null) {
         return ""
     } else {

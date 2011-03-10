@@ -27,7 +27,7 @@ function ProvisionMetadataServiceApplications($config) {
         $createCmd = "New-SPMetadataServiceApplication -DatabaseName `"$dbName`" -AdministratorAccount `"$adminAccount`" -FullAccessAccount `"$adminAccount`""
         if ($partitioned) { $createCmd += " -PartitionMode" }
         
-        $proxyCmd = "New-SPMetadataServiceApplicationProxy"
+        $proxyCmd = "New-SPMetadataServiceApplicationProxy -DefaultProxyGroup"
         if ($partitioned) { $proxyCmd += " -PartitionMode" }
         
         ProvisionServiceApplication $def $createCmd $proxyCmd $config
@@ -285,53 +285,153 @@ function ProvisionUserProfileServiceApplications($config) {
     
     foreach ($def in $config.ServiceApplications.UserProfileApplication) {
         $serviceName = $def.name
-        $profileDb = $def.ProfileDB
-        $syncDb = $def.ProfileSyncDB
-        $socialDb = $def.SocialDB
-        $mySiteHostUrl = $def.MySites.HostUrl
-        $personalSitePath = $def.MySites.PersonalSitePath
         $partitioned = $def.Partitioned -eq "True"
+        $enableNetBios = $def.EnableNetBIOSDomainNames -eq "True"
         
         info "Creating User Profile Service Application"
         debug "  Name:" $serviceName
         debug "  AppPool:" $def.AppPool.name
         if ($partitioned) { debug "  Partitioned" }
         
-        $createCmd = "New-SPProfileServiceApplication -ProfileDBName `"$profileDb`" -ProfileSyncDBName `"$syncDb`" -SocialDBName `"$socialDb`" -MySiteHostLocation `"$mySiteHostUrl`" -MySiteManagedPath `"$personalSitePath`""
-        if ($partitioned) { $createCmd += " -PartitionMode" }
-        
-        $proxyCmd = "New-SPProfileServiceApplicationProxy"
-        if ($partitioned) { $proxyCmd += " -PartitionMode" }
-        
-        ProvisionServiceApplication $def $createCmd $proxyCmd $config
         $svcApp = Get-SPServiceApplication | ? {$_.DisplayName -eq $serviceName}
-        
-        # start sync service
-        $syncServer = GetAllServerNamesForService "UserProfileSyncService" $config
-        if ($syncServer.Count -gt 1) {
-            $syncServer = $syncServer[0]
+        if ($svcApp -ne $null) {
+            debug "  Already exists"
+            return
         }
         
-        $farmAcct = GetManagedAccountUsername $config.Farm.FarmSvcAccount $config
-        $farmAcctPwd = GetManagedAccountPassword $config.Farm.FarmSvcAccount $config
+        # create app pool
+        $appPoolAccount = GetOrCreateManagedAccount $def.AppPool.account $config
+        if ($appPoolAccount -eq $null) { throw "Managed account not found" }
+        $appPool = GetOrCreateServiceApplicationPool $def.AppPool.name $appPoolAccount
         
-        $syncService = GetServiceInstance "Microsoft.Office.Server.Administration.ProfileSynchronizationServiceInstance" $syncServer
+        # create profile service
+        CreateUserProfileServiceAsAdmin $def $config
         
-        debug "  starting user profile sync service on server" $syncServer
-        
-        $svcApp.SetSynchronizationMachine($syncServer, [Guid]$syncService.Id, $farmAcct, $farmAcctPwd)
-        [int]$iterations = 0
-        while ($syncService.Status -ne "Online") {
-            if ($iterations -gt 120) {
-                warn "Could not start user profile synchronization service.  Please configure manually"
+        $svcApp = Get-SPServiceApplication | ? {$_.DisplayName -eq $serviceName}
+        [int]$waitTime = 0
+        while ($svcApp.Status -ne "Online") {
+            if ($waitTime -gt 120) {
+                warn "Timed out waiting for user profile service application to provision"
                 break
             }
-            show-progress
             sleep 1
-            [int]$iterations = $iterations + 1
-            $syncService = GetServiceInstance "Microsoft.Office.Server.Administration.ProfileSynchronizationServiceInstance" $syncServer
+            [int]$waitTime = $waitTime + 1
+            $svcApp = Get-SPServiceApplication | ? {$_.DisplayName -eq $serviceName}
+        }
+        
+        # create proxy
+        if ($partitioned) {
+            $profileServiceAppProxy = New-SPProfileServiceApplicationProxy -Name "$serviceName Proxy" -ServiceApplication $svcApp -DefaultProxyGroup -PartitionMode
+            if (-not $?) { throw " - Failed to create $serviceName Proxy" }
+        } else {
+            $profileServiceAppProxy = New-SPProfileServiceApplicationProxy -Name "$serviceName Proxy" -ServiceApplication $svcApp -DefaultProxyGroup
+            if (-not $?) { throw " - Failed to create $serviceName Proxy" }
+        }
+        
+        # assign permissions
+        ApplyPermissionsToServiceApplication $svcApp $def.Permissions $config
+        ApplyAdminPermissionsToServiceApplication $svcApp $def.AdminPermissions $config
+        
+        # enable netbios
+        if ($enableNetBios -eq $true) {
+            debug "  enabling NetBIOS domain names"
+            $svcApp.NetBIOSDomainNamesEnabled = 1
+            $svcApp.Update()
+        }
+        
+        StartUserProfileService $def $config
+        StartUserProfileSyncService $def $config
+        
+    }
+}
+
+function CreateUserProfileServiceAsAdmin($def, $config) {
+    try {
+        $serviceName = $def.name
+        $profileDb = $def.ProfileDB
+        $syncDb = $def.ProfileSyncDB
+        $socialDb = $def.SocialDB
+        $mySiteHostUrl = $def.MySites.HostUrl
+        $personalSitePath = $def.MySites.PersonalSitePath
+        $partitioned = $def.Partitioned -eq "True"
+        $appPool = $def.AppPool.name
+        
+        $farmAcct = GetManagedAccountUsername $config.Farm.FarmSvcAccount
+        [System.Management.Automation.PsCredential]$farmCredential = GetCredential $config.Farm.FarmSvcAccount $config
+        
+        $scriptFile = "$env:SystemDrive\tmp-upsProvision.ps1"
+        
+        # Write the script block, with expanded variables to a temporary script file that the Farm Account can get at
+        Write-Output "Write-Host -ForegroundColor White `"Creating $serviceName as $farmAcct...`"" | Out-File $scriptFile -Width 400
+        Write-Output "Add-PsSnapin Microsoft.SharePoint.PowerShell" | Out-File $scriptFile -Width 400 -Append
+        if ($partitioned) {
+            Write-Output "`$NewProfileServiceApp = New-SPProfileServiceApplication -Name `"$serviceName`" -PartitionMode -ApplicationPool `"$appPool`" -ProfileDBName $profileDb -ProfileSyncDBName $syncDB -SocialDBName $socialDB -MySiteHostLocation `"$mySiteHostUrl`" -MySiteManagedPath `"$personalSitePath`"" | Out-File $scriptFile -Width 400 -Append
+        } else {
+            Write-Output "`$NewProfileServiceApp = New-SPProfileServiceApplication -Name `"$serviceName`" -ApplicationPool `"$appPool`" -ProfileDBName $profileDb -ProfileSyncDBName $syncDB -SocialDBName $socialDB -MySiteHostLocation `"$mySiteHostUrl`" -MySiteManagedPath `"$personalSitePath`"" | Out-File $scriptFile -Width 400 -Append
+        }
+        Write-Output "If (-not `$?) {Write-Error `" - Failed to create $serviceName`"; Write-Host `"Press any key to exit...`"; `$null = `$host.UI.RawUI.ReadKey`(`"NoEcho,IncludeKeyDown`"`)}" | Out-File $scriptFile -Width 400 -Append
+        # Start a process under the Farm Account's credentials, then spawn an elevated process within to finally execute the script file that actually creates the UPS
+        Start-Process $PSHOME\powershell.exe -Credential $farmCredential -ArgumentList "-Command Start-Process $PSHOME\powershell.exe -ArgumentList `"'$scriptFile'`" -Verb Runas" -Wait
+    }
+    catch {
+        Write-Output $_
+        Pause
+    } finally {
+        # Delete the temporary script file if we were successful in creating the UPA
+        $profileServiceApp = Get-SPServiceApplication | ? {$_.DisplayName -eq $serviceName}
+        if ($profileServiceApp) {Remove-Item -Path $scriptFile -ErrorAction SilentlyContinue}
+    }
+}
+
+function StartUserProfileService($def, $config) {
+    # start the user profile service where necessary
+    $servers = GetAllServerNamesForService "UserProfileService" $config
+    
+    # start this service on all severs specified
+    if ($servers -ne "none") {
+        info "Starting User Profile Service on $servers"
+        StartServiceOnServers "Microsoft.Office.Server.Administration.UserProfileServiceInstance" $servers
+    }
+    
+    # now stop this service everywhere else
+    $allServers = GetAllServerNames $config
+    foreach ($server in $allServers) {
+        info "Ensuring User Profile Service is stopped on all other servers"
+        if ($servers -notcontains $server) {
+            StopService "Microsoft.Office.Server.Administration.UserProfileServiceInstance" $server
         }
     }
+}
+
+function StartUserProfileSyncService($def, $config) {
+    # start sync service
+    $syncServer = GetAllServerNamesForService "UserProfileSyncService" $config
+    if ($syncServer.Count -gt 1) {
+        $syncServer = $syncServer[0]
+    }
+    
+    $farmAcct = GetManagedAccountUsername $config.Farm.FarmSvcAccount $config
+    $farmAcctPwd = GetManagedAccountPassword $config.Farm.FarmSvcAccount $config
+    
+    $syncService = GetServiceInstance "Microsoft.Office.Server.Administration.ProfileSynchronizationServiceInstance" $syncServer
+    
+    debug "  starting user profile sync service on server" $syncServer
+    
+    $svcApp.SetSynchronizationMachine($syncServer, [Guid]$syncService.Id, $farmAcct, $farmAcctPwd)
+    [int]$iterations = 0
+    while ($syncService.Status -ne "Online") {
+        if ($iterations -gt 600) {
+            warn "Could not start user profile synchronization service.  Please configure manually"
+            break
+        }
+        show-progress
+        sleep 1
+        [int]$iterations = $iterations + 1
+        $syncService = GetServiceInstance "Microsoft.Office.Server.Administration.ProfileSynchronizationServiceInstance" $syncServer
+    }
+    
+    debug "  restarting IIS"
+    Start-Process -FilePath iisreset.exe -ArgumentList "-noforce" -Wait -NoNewWindow
 }
 
 # ---------------------------------------------------------------
@@ -511,6 +611,7 @@ function ProvisionVisioGraphicsApplications($config) {
             New-SPVisioServiceApplicationProxy -Name "$($def.name) Proxy" -ServiceApplication $def.name | out-null
             
             ApplyPermissionsToServiceApplication $serviceApp $def.Permissions $config
+            ApplyAdminPermissionsToServiceApplication $serviceApp $def.AdminPermissions $config
         }
     }
 }
@@ -549,6 +650,7 @@ function ProvisionServiceApplication($appDefinition, [string]$serviceAppCmd, [st
             
             # assign permissions
             ApplyPermissionsToServiceApplication $serviceApp $appDefinition.Permissions $config
+            ApplyAdminPermissionsToServiceApplication $serviceApp $appDefinition.AdminPermissions $config
             
             debug "  done"
             
@@ -592,4 +694,26 @@ function ApplyPermissionsToServiceApplication($serviceAppToSecure, $permissions,
     
     ## Apply the changes to the Service application
     Set-SPServiceApplicationSecurity $serviceAppIDToSecure -objectSecurity $serviceAppSecurity
+}
+
+function ApplyAdminPermissionsToServiceApplication($serviceAppToSecure, $permissions, $config) {
+    if ($permissions -eq $null) {
+        return
+    }
+
+    ## Get ID of "Service"
+    $serviceAppIDToSecure = $serviceAppToSecure.Id
+    
+    ## Get security for app
+    $serviceAppSecurity = Get-SPServiceApplicationSecurity $serviceAppIDToSecure -Admin
+            
+    ## Get the Claims Principals for each identity specified
+    foreach ($perm in $permissions.Grant) {
+        $identity = GetManagedAccountUsername $perm.account $config
+        $principal = New-SPClaimsPrincipal -Identity $identity -IdentityType WindowsSamAccountName
+        Grant-SPObjectSecurity $serviceAppSecurity -Principal $principal -Rights $perm.rights
+    }
+    
+    ## Apply the changes to the Service application
+    Set-SPServiceApplicationSecurity $serviceAppIDToSecure -objectSecurity $serviceAppSecurity -Admin
 }

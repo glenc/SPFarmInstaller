@@ -39,6 +39,18 @@ try {
     } else {
         info "This server is already connect to the Farm."
     }
+    
+    info "Adding farm account to local adminsitrators group"
+    warn "PLEASE REMOVE THE FARM ACCOUNT FROM THE LOCAL ADMINISTRATORS GROUP AFTER FARM CONFIGURATION IS COMPLETE"
+    AddFarmAccountToLocalAdminGroup $Config
+    
+    if ($isNewFarm) {
+        info "New Farm has been created."
+        info "Please run this script on all other servers to join them to the farm"
+        warn "Once all servers have been joined, reboot each server (including this one)"
+    } else {
+        warn "Server has been joined to the farm.  Please reboot this server before continuing"
+    }
 
 } catch {
     throw

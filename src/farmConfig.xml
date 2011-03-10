@@ -15,8 +15,8 @@
         <Account name="Managed Metadata App Pool Account" username="DOMAIN\account" password="***" />
         <Account name="Web Analytics Account" username="DOMAIN\account" password="***" />
         <Account name="User Profiles App Pool Account" username="DOMAIN\account" password="***" />
-		<Account name="Business Data App Pool Account" username="DOMAIN\account" password="***" />
-		<Account name="Secure Store App Pool Account" username="DOMAIN\account" password="***" />
+        <Account name="Business Data App Pool Account" username="DOMAIN\account" password="***" />
+        <Account name="Secure Store App Pool Account" username="DOMAIN\account" password="***" />
     </ManagedAccounts>
     <Farm>
         <FarmSvcAccount>Farm Service Account</FarmSvcAccount>
@@ -39,7 +39,7 @@
                 <Server name="localhost"/>
             </Group>
             <Group name="Central Admin Server">
-            	<Server name="localhost" />
+                <Server name="localhost" />
             </Group>
             <Group name="App Servers">
                 <Server name="localhost"/>
@@ -135,7 +135,7 @@
                 <ManagedPath path="personal" type="Wildcard Inclusion" />
             </ManagedPaths>
             <SiteCollections>
-            	<SiteCollection url="http://sharepoint.mycompany.com/mysite" 
+                <SiteCollection url="http://sharepoint.mycompany.com/mysite" 
                                 owner="DOMAIN\account" 
                                 name="My Site" 
                                 description="My Site Host" 
@@ -145,16 +145,16 @@
         </WebApplication>
     </WebApplications>
     <ServiceApplications>
-    	
-    	<StateServiceApplication name="State Service">
-        	<DBName>SP_State</DBName>
+        
+        <StateServiceApplication name="State Service">
+            <DBName>SP_State</DBName>
         </StateServiceApplication>
         
         <WSSUsageApplication name="WSS Usage">
-        	<DBName>SP_Usage</DBName>
+            <DBName>SP_Usage</DBName>
         </WSSUsageApplication>
         
-    	<ManagedMetadataApplication name="Managed Metadata">
+        <ManagedMetadataApplication name="Managed Metadata">
             <DBName>SP_ManagedMetadata</DBName>
             <AppPool name="Managed Metadata App Pool" account="Managed Metadata App Pool Account" />
             <Partitioned>False</Partitioned>
@@ -172,15 +172,18 @@
             <ProfileDB>SP_UserProfiles</ProfileDB>
             <ProfileSyncDB>SP_UserProfilesSync</ProfileSyncDB>
             <SocialDB>SP_SocialTagging</SocialDB>
+            <EnableNetBIOSDomainNames>True</EnableNetBIOSDomainNames>
             
             <MySites>
                 <HostUrl>http://sharepoint.mycompany.com/mysite</HostUrl>
                 <PersonalSitePath>personal</PersonalSitePath>
             </MySites>
             
-            <Permissions>
+            <AdminPermissions>
                 <Grant account="Farm Service Account" rights="Full Control" />
-            </Permissions>
+                <Grant account="Portal App Pool Account" rights="Full Control" />
+                <Grant account="Default Content Access Account" rights="Retrieve People Data for Search Crawlers" />
+            </AdminPermissions>
         </UserProfileApplication>
         
         <EnterpriseSearchService>
@@ -206,13 +209,13 @@
             <SearchServiceApplicationType>Regular</SearchServiceApplicationType>
         </EnterpriseSearchApplication>
         
-    	<WebAnalyticsApplication name="Web Analytics">
-        	<AppPool name="Web Analytics App Pool" account="Web Analytics Account" />
-        	<StagingDB>SP_WebAnalyticsStaging</StagingDB>
-        	<ReportingDB>SP_WebAnalyticsReporting</ReportingDB>
-        	<DataRetentionPeriod>25</DataRetentionPeriod>
-        	<SamplingRate>100</SamplingRate>
-    	</WebAnalyticsApplication>
+        <WebAnalyticsApplication name="Web Analytics">
+            <AppPool name="Web Analytics App Pool" account="Web Analytics Account" />
+            <StagingDB>SP_WebAnalyticsStaging</StagingDB>
+            <ReportingDB>SP_WebAnalyticsReporting</ReportingDB>
+            <DataRetentionPeriod>25</DataRetentionPeriod>
+            <SamplingRate>100</SamplingRate>
+        </WebAnalyticsApplication>
 
         <BusinessDataConnectivityApplication name="Business Data">
             <AppPool name="Business Data App Pool" account="Business Data App Pool Account"/>
@@ -229,9 +232,9 @@
         </VisioGraphicsApplication>
         
         <SecureStoreApplication name="Secure Store">
-        	<DBName>SP_SecureStore</DBName>
-        	<AppPool name="Secure Store App Pool" account="Secure Store App Pool Account" />
-        	<Partitioned>False</Partitioned>
+            <DBName>SP_SecureStore</DBName>
+            <AppPool name="Secure Store App Pool" account="Secure Store App Pool Account" />
+            <Partitioned>False</Partitioned>
         </SecureStoreApplication>
         
     </ServiceApplications>
