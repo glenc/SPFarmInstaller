@@ -90,8 +90,12 @@ function ProvisionEnterpriseSearchServiceApplications($config) {
         debug "  Create proxy..."
         CreateSearchProxy $searchApp $def $config
         
+        debug "  Set Search Start Points..."
+        SetCrawlStartPoints $searchApp $config
     }
     
+    debug "  Creating search shares..."
+    CreateSearchShares $config
 }
 
 function ProvisionEnterpriseSearchService($config) {
@@ -265,6 +269,68 @@ function ActivateTopology($searchApp, $config) {
     $searchApp | Get-SPEnterpriseSearchQueryTopology | where {$_.State -eq "Inactive"} | Remove-SPEnterpriseSearchQueryTopology -Confirm:$false
 }
 
+function SetCrawlStartPoints($searchApp, $config) {
+    $startPoints = @()
+    
+    # build a list of all web apps
+    foreach ($url in $config.WebApplications.WebApplication.Url) {
+        $startPoints += $url
+    }
+    
+    # create sp3:// start points from all my site hosts
+    foreach ($mySiteHostUrl in $config.ServiceApplications.UserProfileApplication.MySites.HostUrl) {
+        # extract host portion only
+        $uri = [uri]$mySiteHostUrl
+        $startPoints += "sps3://" + $uri.Host + ":" + $uri.Port
+    }
+    
+    $startAddresses = [string]::join(",", $startPoints)
+    debug "  Start Addresses: $startAddresses"
+    $searchApp | Get-SPEnterpriseSearchCrawlContentSource | Set-SPEnterpriseSearchCrawlContentSource -StartAddresses $startAddresses
+}
+
+function CreateSearchShares($config) {
+    $svcDescription = $config.ServiceApplications.EnterpriseSearchService
+
+    $localPath = $svcDescription.IndexLocation
+    $shareName = $svcDescription.ShareName
+    
+    $searchServers = @()
+    $searchServers += GetAllServerNamesForService "EnterpriseSearchCrawl" $config
+    $searchServers += GetAllServerNamesForService "EnterpriseSearchQuery" $config
+    $searchServers = $searchServers | Select-Object -Unique
+    
+    foreach ($serverName in $searchServers) {
+        # create share
+        $wmiObj = Get-WmiObject -List -ComputerName $serverName | where-object -FilterScript {$_.Name -eq "Win32_Share"}
+        $wmiObj.InvokeMethod("Create", ($localPath, $shareName, 0))
+        
+        # set permissions on share
+        $sd = (new-object management.managementclass Win32_SecurityDescriptor).CreateInstance() 
+        $ace = (new-object management.managementclass Win32_ace).CreateInstance() 
+        $Trustee = (new-object management.managementclass win32_trustee).CreateInstance()
+        
+        $wss_wpg = Get-WmiObject Win32_Group -ComputerName $serverName | where-object { $_.Name -eq "WSS_WPG" }
+        
+        $Trustee.Domain = $serverName
+        $Trustee.Name = "WSS_WPG"
+        $Trustee.SIDString = $wss_wpg.SID
+        
+        $ace.AccessMask = 1245631
+        $ace.AceType = 0
+        $ace.AceFlags = 3
+        $ace.trustee = $Trustee
+        $sd.DACL = @($ace.psobject.baseObject)
+        
+        $share = Get-WmiObject win32_share -ComputerName $serverName -filter "name='$shareName'"
+        
+        $inparams = $share.GetMethodParameters("setShareInfo")
+        $inparams["Access"] = $sd.psobject.baseObject
+        
+        $share.invokeMethod("setShareInfo", $inparams, $null)
+    }
+}
+
 function GetAllSearchServers($config) {
     $servers = @()
     $servers += GetAllServerNamesForService "EnterpriseSearchCrawl" $config
@@ -338,6 +404,10 @@ function ProvisionUserProfileServiceApplications($config) {
             $svcApp.NetBIOSDomainNamesEnabled = 1
             $svcApp.Update()
         }
+        
+        # enable activity feed job
+        debug "  Enabling Activity Feed Timer Job"
+        Get-SPTimerJob | ? {$_.TypeName -eq "Microsoft.Office.Server.ActivityFeed.ActivityFeedUPAJob"} | Enable-SPTimerJob
         
         StartUserProfileService $def $config
         StartUserProfileSyncService $def $config
