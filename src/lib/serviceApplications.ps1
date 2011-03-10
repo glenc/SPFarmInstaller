@@ -147,7 +147,13 @@ function StartEnterpriseSearchServices($searchApp, $config) {
         if ($svc -eq $null) { throw "Unable to get search service on server $server" }
         
         if ($svc.Status -ne "Online") {
+            debug "  $server"
             $svc | Start-SPEnterpriseSearchServiceInstance
+            while ($svc.Status -ne "Online") {
+                show-progress
+                sleep 1
+                $svc = Get-SPEnterpriseSearchServiceInstance | ? {$_.Server.Name -eq $server}
+            }
         }
         
         if ($searchAdminServers -contains $server) {
@@ -399,6 +405,8 @@ function ProvisionUserProfileServiceApplications($config) {
         ApplyAdminPermissionsToServiceApplication $svcApp $def.AdminPermissions $config
         
         # enable netbios
+        # reload service app to avoid update concurrency exception
+        $svcApp = Get-SPServiceApplication | ? {$_.DisplayName -eq $serviceName}
         if ($enableNetBios -eq $true) {
             debug "  enabling NetBIOS domain names"
             $svcApp.NetBIOSDomainNamesEnabled = 1

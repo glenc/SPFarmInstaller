@@ -44,7 +44,7 @@ try {
     warn "PLEASE REMOVE THE FARM ACCOUNT FROM THE LOCAL ADMINISTRATORS GROUP AFTER FARM CONFIGURATION IS COMPLETE"
     AddFarmAccountToLocalAdminGroup $Config
     
-    if ($isNewFarm) {
+    if ($isNewFarm -eq $true) {
         info "New Farm has been created."
         info "Please run this script on all other servers to join them to the farm"
         warn "Once all servers have been joined, reboot each server (including this one)"
