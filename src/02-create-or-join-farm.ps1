@@ -34,6 +34,7 @@ try {
         
         if ($isNewFarm -eq $true) {
             CreateCentralAdmin $Config
+            ConfigureOutgoingEmail $Config
         }
         
     } else {

@@ -81,6 +81,9 @@ function CreateWebApplication($def, $config) {
         # create site collections
         CreateSiteCollections $def $config
         
+        # apply cache account
+        ConfigureObjectCache $def
+        
     } catch {
         Write-Output $_
     }
@@ -196,4 +199,43 @@ function AssignCert($SSLHostHeader, $SSLPort, $config){
         warn "No certificates were found, and none could be created."
     }
     $Cert = $null
+}
+
+function ConfigureObjectCache($def) {
+    try {
+           $url = $def.Url
+        $wa = Get-SPWebApplication | Where-Object {$_.DisplayName -eq $def.name}
+        $superUserAcc = $def.ObjectCacheAccounts.SuperUser
+        $superReaderAcc = $def.ObjectCacheAccounts.SuperReader
+        
+        # If the web app is using Claims auth, change the user accounts to the proper syntax
+        if ($wa.UseClaimsAuthentication -eq $true) {
+            $superUserAcc = 'i:0#.w|' + $superUserAcc
+            $superReaderAcc = 'i:0#.w|' + $superReaderAcc
+        }
+        
+        debug "  Applying object cache accounts to `"$url`"..."
+        $wa.Properties["portalsuperuseraccount"] = $superUserAcc
+        SetWebAppUserPolicy $wa $superUserAcc "Super User (Object Cache)" "Full Control"
+        
+        $wa.Properties["portalsuperreaderaccount"] = $superReaderAcc
+        Set-WebAppUserPolicy $wa $superReaderAcc "Super Reader (Object Cache)" "Full Read"
+        $wa.Update()        
+        
+        debug "  Done applying object cache accounts to `"$url`""
+    } catch {
+        $_
+        warn "  An error occurred applying object cache to `"$url`""
+        Pause
+    }
+}
+
+function SetWebAppUserPolicy($wa, $userName, $displayName, $perm) {
+    [Microsoft.SharePoint.Administration.SPPolicyCollection]$policies = $wa.Policies
+    [Microsoft.SharePoint.Administration.SPPolicy]$policy = $policies.Add($userName, $displayName)
+    [Microsoft.SharePoint.Administration.SPPolicyRole]$policyRole = $wa.PolicyRoles | where {$_.Name -eq $perm}
+    if ($policyRole -ne $null) {
+        $policy.PolicyRoleBindings.Add($policyRole)
+    }
+    $wa.Update()
 }

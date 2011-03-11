@@ -123,3 +123,19 @@ function AddFarmAccountToLocalAdminGroup($config) {
         info "  $farmAcct is already an Administrator."
     }
 }
+
+function ConfigureOutgoingEmail($config) {
+    try {
+        debug "  Configuring Outgoing Email..."
+        
+        $SMTPServer = $config.Farm.OutgoingEmail.smtpServer
+        $emailAddress = $config.Farm.OutgoingEmail.emailAddress
+        $replyToAddress = $config.Farm.OutgoingEmail.replyToAddress
+        
+        $loadasm = [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SharePoint")
+        $SPGlobalAdmin =  New-Object Microsoft.SharePoint.Administration.SPGlobalAdmin
+        $SPGlobalAdmin.UpdateMailSettings($SMTPServer, $emailAddress, $replyToAddress, 65001)
+    } catch {
+        Write-Output $_
+    }
+}

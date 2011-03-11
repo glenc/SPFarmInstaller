@@ -25,6 +25,7 @@
         <ConfigDB>SP_Config</ConfigDB>
         <CentralAdminContentDB>SP_AdminContent</CentralAdminContentDB>
         <CentralAdminPort>2010</CentralAdminPort>
+        <OutgoingEmail smtpServer="localhost" emailAddress="sharepoint@mycompany.com" replyToAddress="sharepoint@mycompany.com"/>
     </Farm>
     <Topology>
         <ServerGroups>
@@ -142,6 +143,10 @@
                                 template="SPSMSITEHOST#0" 
                                 lcid="1033" />
             </SiteCollections>
+            <ObjectCacheAccounts>
+                <SuperUser>DOMAIN\account</SuperUser>
+                <SuperReader>DOMAIN\account</SuperReader>
+            </ObjectCacheAccounts>
         </WebApplication>
     </WebApplications>
     <ServiceApplications>
