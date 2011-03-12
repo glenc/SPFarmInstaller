@@ -39,6 +39,7 @@ function CreateWebApplication($def, $config) {
         $appPoolAccount = GetOrCreateManagedAccount $def.AppPool.account $config
         $anonymous = $def.Authentication.allowAnonymous -eq "True"
         $useClaims = $def.Authentication.mode -eq "Claims"
+        $webAppUrl = $protocol + $hostHeader
         
         if ($useClaims) {
             debug "  Creating web app with claims"
@@ -48,7 +49,7 @@ function CreateWebApplication($def, $config) {
                                  -ApplicationPool $def.AppPool.name `
                                  -DatabaseName $def.ContentDatabase `
                                  -HostHeader $hostHeader `
-                                 -Url $def.Url `
+                                 -Url $webAppUrl `
                                  -Port $port `
                                  -SecureSocketsLayer:$useSSL `
                                  -AuthenticationMethod $def.Authentication.method `
@@ -62,7 +63,7 @@ function CreateWebApplication($def, $config) {
                                  -ApplicationPool $def.AppPool.name `
                                  -DatabaseName $def.ContentDatabase `
                                  -HostHeader $hostHeader `
-                                 -Url $def.Url `
+                                 -Url $webAppUrl `
                                  -Port $port `
                                  -SecureSocketsLayer:$useSSL `
                                  -AuthenticationMethod $def.Authentication.method `
@@ -219,7 +220,7 @@ function ConfigureObjectCache($def) {
         SetWebAppUserPolicy $wa $superUserAcc "Super User (Object Cache)" "Full Control"
         
         $wa.Properties["portalsuperreaderaccount"] = $superReaderAcc
-        Set-WebAppUserPolicy $wa $superReaderAcc "Super Reader (Object Cache)" "Full Read"
+        SetWebAppUserPolicy $wa $superReaderAcc "Super Reader (Object Cache)" "Full Read"
         $wa.Update()        
         
         debug "  Done applying object cache accounts to `"$url`""

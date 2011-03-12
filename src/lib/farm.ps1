@@ -136,6 +136,6 @@ function ConfigureOutgoingEmail($config) {
         $SPGlobalAdmin =  New-Object Microsoft.SharePoint.Administration.SPGlobalAdmin
         $SPGlobalAdmin.UpdateMailSettings($SMTPServer, $emailAddress, $replyToAddress, 65001)
     } catch {
-        Write-Output $_
+        warn "Could not configure outgoing email.  Please configure manually in Central Admin"
     }
 }
