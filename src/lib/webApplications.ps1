@@ -204,7 +204,7 @@ function AssignCert($SSLHostHeader, $SSLPort, $config){
 
 function ConfigureObjectCache($def) {
     try {
-           $url = $def.Url
+        $url = $def.Url
         $wa = Get-SPWebApplication | Where-Object {$_.DisplayName -eq $def.name}
         $superUserAcc = $def.ObjectCacheAccounts.SuperUser
         $superReaderAcc = $def.ObjectCacheAccounts.SuperReader
@@ -215,13 +215,17 @@ function ConfigureObjectCache($def) {
             $superReaderAcc = 'i:0#.w|' + $superReaderAcc
         }
         
-        debug "  Applying object cache accounts to `"$url`"..."
-        $wa.Properties["portalsuperuseraccount"] = $superUserAcc
-        SetWebAppUserPolicy $wa $superUserAcc "Super User (Object Cache)" "Full Control"
+        if ($def.ObjectCacheAccounts.SuperUser -ne $null) {
+            debug "  Applying object cache accounts to `"$url`"..."
+            $wa.Properties["portalsuperuseraccount"] = $superUserAcc
+            SetWebAppUserPolicy $wa $superUserAcc "Super User (Object Cache)" "Full Control"
+        }
         
-        $wa.Properties["portalsuperreaderaccount"] = $superReaderAcc
-        SetWebAppUserPolicy $wa $superReaderAcc "Super Reader (Object Cache)" "Full Read"
-        $wa.Update()        
+        if ($def.ObjectCacheAccounts.SuperReader -ne $null) {
+            $wa.Properties["portalsuperreaderaccount"] = $superReaderAcc
+            SetWebAppUserPolicy $wa $superReaderAcc "Super Reader (Object Cache)" "Full Read"
+            $wa.Update()
+        }
         
         debug "  Done applying object cache accounts to `"$url`""
     } catch {
