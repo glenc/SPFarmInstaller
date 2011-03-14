@@ -139,3 +139,20 @@ function ConfigureOutgoingEmail($config) {
         warn "Could not configure outgoing email.  Please configure manually in Central Admin"
     }
 }
+
+function ConfigureSessionStateService($config) {
+    $enable = $config.Farm.SessionState.enableSessionStateService -eq "True"
+    $svc = Get-SPSessionStateService
+    $isEnabled = ($svc -ne $null -and $svc.SessionStateEnabled -eq $true)
+    
+    if ($enable -eq $true -and $isEnabled -eq $false) {
+        debug "  Enabling session state service"
+        $dbName = $config.Farm.SessionState.DBName
+        Enable-SPSessionStateService -DatabaseName $dbName
+    }
+    
+    if ($enable -eq $false -and $isEnabled -eq $true) {
+        debug "  Disabling session state service"
+        Disable-SPSessionStateService
+    }
+}

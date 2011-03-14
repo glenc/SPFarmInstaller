@@ -26,6 +26,9 @@
         <CentralAdminContentDB>SP_AdminContent</CentralAdminContentDB>
         <CentralAdminPort>2010</CentralAdminPort>
         <OutgoingEmail smtpServer="localhost" emailAddress="sharepoint@mycompany.com" replyToAddress="sharepoint@mycompany.com"/>
+        <SessionState enableSessionStateService="True">
+            <DBName>SP_SessionState</DBName>
+        </SessionState>
     </Farm>
     <Topology>
         <ServerGroups>
