@@ -279,8 +279,8 @@ function SetCrawlStartPoints($searchApp, $config) {
     $startPoints = @()
     
     # build a list of all web apps
-    foreach ($url in $config.WebApplications.WebApplication.Url) {
-        $startPoints += $url
+    foreach ($webapp in $config.WebApplications.WebApplication) {
+        $startPoints += $webapp.Url
     }
     
     # create sp3:// start points from all my site hosts
