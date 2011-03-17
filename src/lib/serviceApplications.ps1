@@ -309,31 +309,36 @@ function CreateSearchShares($config) {
     foreach ($serverName in $searchServers) {
         # create share
         $wmiObj = Get-WmiObject -List -ComputerName $serverName | where-object -FilterScript {$_.Name -eq "Win32_Share"}
-        $wmiObj.InvokeMethod("Create", ($localPath, $shareName, 0))
+        $ret = $wmiObj.InvokeMethod("Create", ($localPath, $shareName, 0))
         
-        # set permissions on share
-        $sd = (new-object management.managementclass Win32_SecurityDescriptor).CreateInstance() 
-        $ace = (new-object management.managementclass Win32_ace).CreateInstance() 
-        $Trustee = (new-object management.managementclass win32_trustee).CreateInstance()
-        
-        $wss_wpg = Get-WmiObject Win32_Group -ComputerName $serverName | where-object { $_.Name -eq "WSS_WPG" }
-        
-        $Trustee.Domain = $serverName
-        $Trustee.Name = "WSS_WPG"
-        $Trustee.SIDString = $wss_wpg.SID
-        
-        $ace.AccessMask = 1245631
-        $ace.AceType = 0
-        $ace.AceFlags = 3
-        $ace.trustee = $Trustee
-        $sd.DACL = @($ace.psobject.baseObject)
-        
-        $share = Get-WmiObject win32_share -ComputerName $serverName -filter "name='$shareName'"
-        
-        $inparams = $share.GetMethodParameters("setShareInfo")
-        $inparams["Access"] = $sd.psobject.baseObject
-        
-        $share.invokeMethod("setShareInfo", $inparams, $null)
+        if ($ret -eq 0) {
+            # set permissions on share
+            $sd = (new-object management.managementclass Win32_SecurityDescriptor).CreateInstance() 
+            $ace = (new-object management.managementclass Win32_ace).CreateInstance() 
+            $Trustee = (new-object management.managementclass win32_trustee).CreateInstance()
+            
+            $wss_wpg = Get-WmiObject Win32_Group -ComputerName $serverName | where-object { $_.Name -eq "WSS_WPG" }
+            
+            $Trustee.Domain = $serverName
+            $Trustee.Name = "WSS_WPG"
+            $Trustee.SIDString = $wss_wpg.SID
+            
+            $ace.AccessMask = 1245631
+            $ace.AceType = 0
+            $ace.AceFlags = 3
+            $ace.trustee = $Trustee
+            $sd.DACL = @($ace.psobject.baseObject)
+            
+            $share = Get-WmiObject win32_share -ComputerName $serverName -filter "name='$shareName'"
+            
+            $inparams = $share.GetMethodParameters("setShareInfo")
+            $inparams["Access"] = $sd.psobject.baseObject
+            
+            $permRet = $share.invokeMethod("setShareInfo", $inparams, $null)
+        }
+        if ($ret -eq 22) {
+            debug "  share already exists"
+        }
     }
 }
 
