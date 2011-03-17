@@ -654,7 +654,7 @@ function ProvisionAccessServicesApplications($config) {
         if ($existingApp -eq $null) {
             info "Creating access services application" $def.name
             
-            $createCmd = "New-SPAccessServiceApplication"
+            $createCmd = "New-SPAccessServiceApplication -Default"
             
             ProvisionServiceApplication $def $createCmd "" $config
         }
@@ -709,7 +709,7 @@ function ProvisionExcelServicesApplications($config) {
             
             info "Creating excel services application" $def.name
             
-            $createCmd = "New-SPExcelServiceApplication"
+            $createCmd = "New-SPExcelServiceApplication -Default"
             
             ProvisionServiceApplication $def $createCmd "" $config
         
