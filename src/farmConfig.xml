@@ -239,6 +239,10 @@
             <AppPool name="General Services App Pool" account="General Services App Pool Account" />
         </VisioGraphicsApplication>
         
+        <ExcelServicesApplication name="Excel Services">
+            <AppPool name="General Services App Pool" account="General Services App Pool Account" />
+        </ExcelServicesApplication>
+        
         <SecureStoreApplication name="Secure Store">
             <DBName>SP_SecureStore</DBName>
             <AppPool name="Secure Store App Pool" account="Secure Store App Pool Account" />

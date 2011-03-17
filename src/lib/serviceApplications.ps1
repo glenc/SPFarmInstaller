@@ -695,6 +695,29 @@ function ProvisionVisioGraphicsApplications($config) {
 }
 
 # ---------------------------------------------------------------
+# Excel Services
+# ---------------------------------------------------------------
+
+function ProvisionExcelServicesApplications($config) {
+    if ($config.ServiceApplications.ExcelServicesApplication -eq $null) {
+        return
+    }
+    
+    foreach ($def in $config.ServiceApplications.ExcelServicesApplication) {
+        $existingApp = Get-SPServiceApplication | where {$_.DisplayName -eq $def.name}
+        if ($existingApp -eq $null) {
+            
+            info "Creating excel services application" $def.name
+            
+            $createCmd = "New-SPExcelServiceApplication"
+            
+            ProvisionServiceApplication $def $createCmd "" $config
+        
+        }
+    }
+}
+
+# ---------------------------------------------------------------
 # Utility Functions
 # ---------------------------------------------------------------
 
