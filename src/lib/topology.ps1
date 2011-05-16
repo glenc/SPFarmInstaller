@@ -24,7 +24,6 @@ function ConfigureBulkServices($config) {
         "ApplicationRegistryService" = "Microsoft.Office.Server.ApplicationRegistry.SharedService.ApplicationRegistryServiceInstance";
         "BusinessDataConnectivityService" = "Microsoft.SharePoint.BusinessData.SharedService.BdcServiceInstance";
         "DocumentConversionsLoadBalancer" = "Microsoft.Office.Server.Conversions.LoadBalancerServiceInstance";
-        "SearchQueryAndSiteSettings" = "Microsoft.Office.Server.Search.Administration.SearchQueryAndSiteSettingsServiceInstance";
         "SecureStore" = "Microsoft.Office.SecureStoreService.Server.SecureStoreServiceInstance";
         "SubscriptionSettings" = "Microsoft.SharePoint.SPSubscriptionSettingsServiceInstance";
         "SandboxedCode" = "Microsoft.SharePoint.Administration.SPUserCodeServiceInstance";
@@ -42,7 +41,7 @@ function ConfigureBulkServices($config) {
         #"UserProfileService" = "Microsoft.Office.Server.Administration.UserProfileServiceInstance";
         #"WebApplication" = "Microsoft.SharePoint.Administration.SPWebServiceInstance";
         #"LotusNotesConnector" = "Microsoft.Office.Server.Search.Administration.NotesWebServiceInstance";
-        
+        #"SearchQueryAndSiteSettings" = "Microsoft.Office.Server.Search.Administration.SearchQueryAndSiteSettingsServiceInstance";
     }
     
     $topology = $config.Topology

@@ -73,7 +73,7 @@ function ProvisionEnterpriseSearchServiceApplications($config) {
         $searchApp = CreateEnterpriseSearchApplication $def $config
         
         debug "  Starting search services on servers..."
-        StartEnterpriseSearchServices $searchApp $config
+        StartEnterpriseSearchServices $searchApp $def $config
         
         debug "  Configuring crawl topology..."
         ConfigureCrawlTopology $searchApp $def $config
@@ -92,10 +92,10 @@ function ProvisionEnterpriseSearchServiceApplications($config) {
         
         debug "  Set Search Start Points..."
         SetCrawlStartPoints $searchApp $config
+        
+        debug "  Creating search shares..."
+        CreateSearchShares $def $config
     }
-    
-    debug "  Creating search shares..."
-    CreateSearchShares $config
 }
 
 function ProvisionEnterpriseSearchService($config) {
@@ -139,9 +139,10 @@ function CreateEnterpriseSearchApplication($definition, $config) {
     return $searchApp
 }
 
-function StartEnterpriseSearchServices($searchApp, $config) {
-    $allSearchServers = GetAllSearchServers $config
-    $searchAdminServers = GetAllServerNamesForService "EnterpriseSearchAdminComponent" $config
+function StartEnterpriseSearchServices($searchApp, $def, $config) {
+    $allSearchServers = GetAllSearchServers $def $config
+    $allQueryServers = GetAllQueryServers $def $config
+    $searchAdminServers = GetServerNames $def.Topology.AdminComponent.server $config
     foreach ($server in $allSearchServers) {
         $svc = Get-SPEnterpriseSearchServiceInstance | ? {$_.Server.Name -eq $server}
         if ($svc -eq $null) { throw "Unable to get search service on server $server" }
@@ -167,6 +168,10 @@ function StartEnterpriseSearchServices($searchApp, $config) {
                 }
             }
         }
+        
+        if ($allQueryServers -contains $server) {
+            StartService "Microsoft.Office.Server.Search.Administration.SearchQueryAndSiteSettingsServiceInstance" $server
+        }
     }
 }
 
@@ -187,47 +192,79 @@ function ConfigureCrawlTopology($searchApp, $definition, $config) {
     $indexLocation = $config.ServiceApplications.EnterpriseSearchService.IndexLocation
     $storeDbName = $definition.DBName + "_CrawlStore"
     
-    # get crawl servers
-    $crawlServers = GetAllServerNamesForService "EnterpriseSearchCrawl" $config
-    foreach ($server in $crawlServers) {
-        $svc = Get-SPEnterpriseSearchServiceInstance | ? {$_.Server.Name -eq $server}
-        $crawlComponent = $crawlTopology.CrawlComponents | where { $_.ServerName -eq $server }
-        if ($crawlComponent -eq $null) {
-            debug "  - adding crawl component for server $server"
-            $crawlStore = $searchApp.CrawlStores | where { $_.Name -eq $storeDbName }
-            $crawlComponent = New-SPEnterpriseSearchCrawlComponent `
-                                -SearchServiceInstance $svc `
-                                -SearchApplication $searchApp `
-                                -CrawlTopology $crawlTopology `
-                                -CrawlDatabase $crawlStore.Id.ToString() `
-                                -IndexLocation $indexLocation
+    # configure components
+    foreach ($component in $definition.Topology.CrawlComponents.CrawlComponent) {
+        $servers = GetServerNames $component.server $config
+        foreach ($server in $servers) {
+            $svc = Get-SPEnterpriseSearchServiceInstance | ? {$_.Server.Name -eq $server}
+            $crawlComponent = $crawlTopology.CrawlComponents | where { $_.ServerName -eq $server }
+            if ($crawlComponent -eq $null) {
+                debug "  - adding crawl component for server $server"
+                $crawlStore = $searchApp.CrawlStores | where { $_.Name -eq $storeDbName }
+                $crawlComponent = New-SPEnterpriseSearchCrawlComponent `
+                                    -SearchServiceInstance $svc `
+                                    -SearchApplication $searchApp `
+                                    -CrawlTopology $crawlTopology `
+                                    -CrawlDatabase $crawlStore.Id.ToString() `
+                                    -IndexLocation $indexLocation
+            }
         }
     }
 }
 
 function ConfigureQueryTopology($searchApp, $definition, $config) {
     $queryTopology = Get-SPEnterpriseSearchQueryTopology -SearchApplication $searchApp | where {$_.State -eq "Inactive"}
+    $partitionCount = $definition.Topology.QueryAndIndexComponents.SelectNodes("IndexPartition").Count
     if ($queryTopology -eq $null) {
         debug "  Creating new topology..."
-        $queryTopology = $searchApp | New-SPEnterpriseSearchQueryTopology -Partitions $definition.Partitions
+        $queryTopology = $searchApp | New-SPEnterpriseSearchQueryTopology -Partitions $partitionCount
     }
     
     # store values for later
     $shareName = $config.ServiceApplications.EnterpriseSearchService.ShareName
     $propDbName = $definition.DBName + "_PropertyStore"
     
-    # get query servers
-    $queryServers = GetAllServerNamesForService "EnterpriseSearchQuery" $config
-    foreach ($server in $queryServers) {
-        $svc = Get-SPEnterpriseSearchServiceInstance | ? {$_.Server.Name -eq $server}
-        $queryComponent = $queryTopology.QueryComponents | where { $_.ServerName -eq $server }
-        if ($queryComponent -eq $null) {
-            debug "  - adding query component for server $server"
-            $partition = ($queryTopology | Get-SPEnterpriseSearchIndexPartition)
-            $queryComponent = New-SPEnterpriseSearchQueryComponent -IndexPartition $partition -QueryTopology $queryTopology -SearchServiceInstance $svc -ShareName $shareName
-            $propertyStore = $searchApp.PropertyStores | where { $_.Name -eq $propDbName }
-            $partition | Set-SPEnterpriseSearchIndexPartition -PropertyDatabase $propertyStore.Id.ToString()
+    # get index partitions and ensure they match configuration
+    $indexPartitions = ($queryTopology | Get-SPEnterpriseSearchIndexPartition)
+    if ($partitionCount -eq 1) {
+        if ($indexPartitions.Count -ne $null -and $indexPartitions.Count -gt 1) {
+            throw "Invalid configuration - different number of partitions specified"
         }
+    }
+    if ($partitionCount -gt 1) {
+        if ($indexPartitions.Count -ne $partitionCount) {
+            throw "Invalid configuration - different number of partitions specified"
+        }
+    }
+    
+    # configure components
+    $i = 0
+    foreach ($indexPartition in $definition.Topology.QueryAndIndexComponents.IndexPartition) {
+        $currentPartition = $indexPartitions[$i]
+        
+        $propertyStore = $searchApp.PropertyStores | where { $_.Name -eq $propDbName }
+        $currentPartition | Set-SPEnterpriseSearchIndexPartition -PropertyDatabase $propertyStore.Id.ToString()
+        
+        foreach ($component in $indexPartition.QueryComponent) {
+            $server = GetServerNames $component.server $config
+            if ($server.Count -ne $null) {
+                $server = $server[0]
+            }
+            $svc = Get-SPEnterpriseSearchServiceInstance | ? {$_.Server.Name -eq $server}
+            $queryComponent = $queryTopology.QueryComponents | where { $_.ServerName -eq $server }
+            
+            debug "  - adding query component for server $server"
+            $failover = $component.failover -eq "true"
+            $queryComponent = New-SPEnterpriseSearchQueryComponent `
+                                -IndexPartition $currentPartition `
+                                -QueryTopology $queryTopology `
+                                -SearchServiceInstance $svc `
+                                -ShareName $shareName `
+                                -FailoverOnly:$failover
+            
+        }
+        
+        $i++;
     }
 }
 
@@ -295,16 +332,13 @@ function SetCrawlStartPoints($searchApp, $config) {
     $searchApp | Get-SPEnterpriseSearchCrawlContentSource | Set-SPEnterpriseSearchCrawlContentSource -StartAddresses $startAddresses
 }
 
-function CreateSearchShares($config) {
+function CreateSearchShares($def, $config) {
     $svcDescription = $config.ServiceApplications.EnterpriseSearchService
 
     $localPath = $svcDescription.IndexLocation
     $shareName = $svcDescription.ShareName
     
-    $searchServers = @()
-    $searchServers += GetAllServerNamesForService "EnterpriseSearchCrawl" $config
-    $searchServers += GetAllServerNamesForService "EnterpriseSearchQuery" $config
-    $searchServers = $searchServers | Select-Object -Unique
+    $searchServers = GetAllQueryServers $def $config
     
     foreach ($serverName in $searchServers) {
         # create share
@@ -342,11 +376,26 @@ function CreateSearchShares($config) {
     }
 }
 
-function GetAllSearchServers($config) {
+function GetAllSearchServers($def, $config) {
     $servers = @()
-    $servers += GetAllServerNamesForService "EnterpriseSearchCrawl" $config
-    $servers += GetAllServerNamesForService "EnterpriseSearchQuery" $config
-    $servers += GetAllServerNamesForService "EnterpriseSearchAdminComponent" $config
+    $servers += GetServerNames $def.Topology.AdminComponent.server $config
+    foreach ($component in $def.Topology.CrawlComponents.CrawlComponent) {
+        $servers += GetServerNames $component.server $config
+    }
+    
+    foreach ($component in $def.Topology.QueryAndIndexComponents.SelectNodes("IndexPartition/QueryComponent")) {
+        $servers += GetServerNames $component.server $config
+    }
+    
+    return $servers | Select-Object -Unique
+}
+
+function GetAllQueryServers($def, $config) {
+    $servers = @()
+    
+    foreach ($component in $def.Topology.QueryAndIndexComponents.SelectNodes("IndexPartition/QueryComponent")) {
+        $servers += GetServerNames $component.server $config
+    }
     
     return $servers | Select-Object -Unique
 }

@@ -36,7 +36,7 @@
                 You may define groups of servers below.  Defining groups
                 is recommended to make it easier to assign services to your
                 servers.  For example, you can specify that the Managed 
-                Metadata service should be started on all App Servers withou
+                Metadata service should be started on all App Servers without
                 having to enter the individual server names each time.
             -->
             <Group name="WFE Servers">
@@ -88,11 +88,7 @@
         <Service name="UserProfileService"               runningOn="App Servers" />
         <Service name="UserProfileSyncService"           runningOn="Central Admin Server" />
         
-        <!-- Enterprise Search -->
-        <Service name="EnterpriseSearchCrawl"            runningOn="Search Servers" />
-        <Service name="EnterpriseSearchQuery"            runningOn="Search Servers" />
-        <Service name="EnterpriseSearchAdminComponent"   runningOn="Central Admin Server" />
-        <Service name="SearchQueryAndSiteSettings"       runningOn="Search Servers" />
+        <!-- Enterprise Search (configured in search service application below) -->
         
         <!-- Office Services -->
         <Service name="AccessService"                    runningOn="App Servers" />
@@ -212,9 +208,24 @@
             <AppPool name="Search App Pool" account="Search Service Account" />
             <AdminAppPool name="Search Admin App Pool" account="Search Admin Service Account" />
             <Partitioned>False</Partitioned>
-            <Partitions>1</Partitions>
             <ContentAccessAccount>Default Content Access Account</ContentAccessAccount>
             <SearchServiceApplicationType>Regular</SearchServiceApplicationType>
+            <Topology>
+                <AdminComponent server="SP-APP-01" />
+                <CrawlComponents>
+                    <CrawlComponent server="SP-APP-01" />
+                </CrawlComponents>
+                <QueryAndIndexComponents>
+                    <IndexPartition>
+                        <QueryComponent server="SP-WFE-01"/>
+                        <QueryComponent server="SP-WFE-02" failover="true" />
+                    </IndexPartition>
+                    <IndexPartition>
+                        <QueryComponent server="SP-WFE-01" failover="true" />
+                        <QueryComponent server="SP-WFE-02"/>
+                    </IndexPartition>
+                </QueryAndIndexComponents>
+            </Topology>
         </EnterpriseSearchApplication>
         
         <WebAnalyticsApplication name="Web Analytics">
