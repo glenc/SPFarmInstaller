@@ -48,9 +48,6 @@
             <Group name="App Servers">
                 <Server name="localhost"/>
             </Group>
-            <Group name="Search Servers">
-                <Server name="localhost"/>
-            </Group>
         </ServerGroups>
         
         <!--
