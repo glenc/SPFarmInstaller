@@ -240,7 +240,10 @@ function ConfigureQueryTopology($searchApp, $definition, $config) {
     # configure components
     $i = 0
     foreach ($indexPartition in $definition.Topology.QueryAndIndexComponents.IndexPartition) {
-        $currentPartition = $indexPartitions[$i]
+        $currentPartition = $indexPartitions
+        if ($partitionCount -gt 1) {
+            $currentPartition = $indexPartitions[$i]
+        }
         
         $propertyStore = $searchApp.PropertyStores | where { $_.Name -eq $propDbName }
         $currentPartition | Set-SPEnterpriseSearchIndexPartition -PropertyDatabase $propertyStore.Id.ToString()
